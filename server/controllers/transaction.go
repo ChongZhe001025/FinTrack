@@ -270,3 +270,96 @@ func DeleteTransaction(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "刪除成功"})
 }
+
+// GetMonthlyComparison godoc
+// @Summary      取得月度對比
+// @Description  比較本月與上個月的各類別支出
+// @Tags         Stats
+// @Produce      json
+// @Success      200  {array}  map[string]interface{}
+// @Router       /stats/comparison [get]
+func GetMonthlyComparison(c *gin.Context) {
+	collection := config.GetCollection("transactions")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 1. 計算時間範圍
+	now := time.Now()
+	currentYear, currentMonth, _ := now.Date()
+
+	// 本月起訖
+	thisMonthStart := time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, now.Location())
+	thisMonthEnd := thisMonthStart.AddDate(0, 1, 0) // 下個月1號即為本月結束點
+
+	// 上月起訖
+	lastMonthStart := thisMonthStart.AddDate(0, -1, 0)
+	lastMonthEnd := thisMonthStart
+
+	// 2. 定義 Aggregation 函式 (重用邏輯)
+	getStats := func(start, end time.Time) (map[string]float64, error) {
+		pipeline := mongo.Pipeline{
+			{{Key: "$match", Value: bson.D{
+				{Key: "type", Value: "expense"}, // 只看支出
+				{Key: "date", Value: bson.D{
+					{Key: "$gte", Value: start.Format("2006-01-02")},
+					{Key: "$lt", Value: end.Format("2006-01-02")},
+				}},
+			}}},
+			{{Key: "$group", Value: bson.D{
+				{Key: "_id", Value: "$category"},
+				{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}},
+			}}},
+		}
+
+		cursor, err := collection.Aggregate(ctx, pipeline)
+		if err != nil {
+			return nil, err
+		}
+		defer cursor.Close(ctx)
+
+		var results []bson.M
+		if err = cursor.All(ctx, &results); err != nil {
+			return nil, err
+		}
+
+		stats := make(map[string]float64)
+		for _, r := range results {
+			stats[r["_id"].(string)] = r["total"].(float64)
+		}
+		return stats, nil
+	}
+
+	// 3. 分別撈取資料
+	thisMonthStats, err := getStats(thisMonthStart, thisMonthEnd)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "計算本月資料失敗"})
+		return
+	}
+
+	lastMonthStats, err := getStats(lastMonthStart, lastMonthEnd)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "計算上月資料失敗"})
+		return
+	}
+
+	// 4. 合併資料 (Merge)
+	// 找出所有出現過的類別
+	categories := make(map[string]bool)
+	for k := range thisMonthStats {
+		categories[k] = true
+	}
+	for k := range lastMonthStats {
+		categories[k] = true
+	}
+
+	var response []gin.H
+	for cat := range categories {
+		response = append(response, gin.H{
+			"category": cat,
+			"current":  thisMonthStats[cat], // 若無 key 會回傳 0 (float64 預設值)
+			"previous": lastMonthStats[cat],
+		})
+	}
+
+	c.JSON(http.StatusOK, response)
+}

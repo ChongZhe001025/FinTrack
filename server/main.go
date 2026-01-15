@@ -76,10 +76,17 @@ func GinRouter() *gin.Engine {
 		// Stats
 		v1.GET("/stats", controllers.GetDashboardStats)
 		v1.GET("/stats/category", controllers.GetCategoryStats)
+		v1.GET("/stats/comparison", controllers.GetMonthlyComparison)
+		v1.GET("/stats/weekly", controllers.GetWeeklyHabits)
 
 		// Category
 		v1.GET("/categories", controllers.GetCategories)
 		v1.POST("/categories", controllers.CreateCategory)
+
+		// Budgets
+		v1.POST("/budgets", controllers.SetBudget)
+		v1.GET("/budgets/status", controllers.GetBudgetStatus)
+		v1.DELETE("/budgets/:id", controllers.DeleteBudget)
 	}
 
 	return r
