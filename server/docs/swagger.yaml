@@ -1,0 +1,109 @@
+basePath: /api/v1
+definitions:
+  models.Transaction:
+    properties:
+      amount:
+        description: 'Amount: 金額'
+        example: 150
+        type: number
+      category:
+        description: 'Category: 類別 (如: Food, Transport)'
+        example: Food
+        type: string
+      created_at:
+        description: 'CreatedAt: 建立時間'
+        type: string
+      date:
+        description: |-
+          Date: 日期字串 "YYYY-MM-DD"
+          為了配合前端傳來的格式，我們先用 string 存，方便處理
+        example: "2026-01-14"
+        type: string
+      id:
+        description: |-
+          ID: MongoDB 自動生成的唯一識別碼
+          omitempty: 如果是空的 (建立時) 就不傳這個欄位給 MongoDB，讓它自己生
+        type: string
+      note:
+        description: 'Note: 備註 (選填)'
+        example: 午餐吃牛肉麵
+        type: string
+      type:
+        description: |-
+          Type: "income" 或 "expense"
+          binding:"required": Gin 會幫我們檢查這個欄位必填
+        enum:
+        - income
+        - expense
+        example: expense
+        type: string
+      updated_at:
+        description: 'UpdatedAt: 更新時間'
+        type: string
+    required:
+    - amount
+    - category
+    - date
+    - type
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: 這是個人記帳工具 FinTrack 的後端 API 文件
+  title: FinTrack API
+  version: "1.0"
+paths:
+  /ping:
+    get:
+      consumes:
+      - application/json
+      description: 回傳 Pong 確認伺服器存活
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 健康檢查
+      tags:
+      - System
+  /transactions:
+    get:
+      description: 取得所有記帳紀錄
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Transaction'
+            type: array
+      summary: 取得列表
+      tags:
+      - Transactions
+    post:
+      consumes:
+      - application/json
+      description: 建立一筆新的收入或支出紀錄
+      parameters:
+      - description: 記帳資料
+        in: body
+        name: transaction
+        required: true
+        schema:
+          $ref: '#/definitions/models.Transaction'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Transaction'
+      summary: 新增記帳
+      tags:
+      - Transactions
+swagger: "2.0"
