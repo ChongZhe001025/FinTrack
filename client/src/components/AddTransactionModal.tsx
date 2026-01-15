@@ -92,7 +92,7 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
   // 取得類別列表
   const fetchCategories = async () => {
     try {
-      const res = await axios.get('http://localhost:8080/api/v1/categories');
+      const res = await axios.get('/api/v1/categories');
       setCategories(res.data || []);
     } catch (error) {
       console.error("無法取得類別", error);
@@ -116,7 +116,7 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
     try {
-      const res = await axios.post('http://localhost:8080/api/v1/categories', {
+      const res = await axios.post('/api/v1/categories', {
         name: newCategoryName,
         type: type 
       });
@@ -142,7 +142,7 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
   const handleDelete = async () => {
       if (!editData || !confirm('確定要刪除這筆紀錄嗎？')) return;
       try {
-          await axios.delete(`http://localhost:8080/api/v1/transactions/${editData.id}`);
+          await axios.delete(`/api/v1/transactions/${editData.id}`);
           window.location.reload();
       } catch (error) {
           console.error(error);
@@ -156,9 +156,9 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
       const payload = { ...data, amount: Number(data.amount) };
 
       if (editData) {
-        await axios.put(`http://localhost:8080/api/v1/transactions/${editData.id}`, payload);
+        await axios.put(`/api/v1/transactions/${editData.id}`, payload);
       } else {
-        await axios.post('http://localhost:8080/api/v1/transactions', payload);
+        await axios.post('/api/v1/transactions', payload);
       }
       
       onClose();

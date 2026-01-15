@@ -55,8 +55,8 @@ export default function BudgetSection() {
     setIsLoading(true);
     try {
       const [budgetRes, catRes] = await Promise.all([
-        axios.get(`http://localhost:8080/api/v1/budgets/status?month=${currentMonth}`),
-        axios.get('http://localhost:8080/api/v1/categories')
+        axios.get(`/api/v1/budgets/status?month=${currentMonth}`),
+        axios.get('/api/v1/categories')
       ]);
       setBudgets(budgetRes.data || []);
       setCategories(catRes.data || []);
@@ -114,7 +114,7 @@ export default function BudgetSection() {
     if (!newCategoryName.trim()) return;
     try {
       // 預設 type 為 expense (通常預算都是針對支出)
-      const res = await axios.post('http://localhost:8080/api/v1/categories', {
+      const res = await axios.post('/api/v1/categories', {
         name: newCategoryName,
         type: 'expense' 
       });
@@ -144,7 +144,7 @@ export default function BudgetSection() {
   const handleSaveBudget = async () => {
     if (!selectedCategory || !amount) return;
     try {
-      await axios.post('http://localhost:8080/api/v1/budgets', {
+      await axios.post('/api/v1/budgets', {
         category: selectedCategory,
         amount: Number(amount),
         year_month: currentMonth
@@ -159,7 +159,7 @@ export default function BudgetSection() {
   const handleDeleteBudget = async (id: string) => {
       if(!confirm("確定要刪除此預算設定嗎？")) return;
       try {
-          await axios.delete(`http://localhost:8080/api/v1/budgets/${id}`);
+          await axios.delete(`/api/v1/budgets/${id}`);
           fetchData();
       } catch (error) {
           console.error(error);

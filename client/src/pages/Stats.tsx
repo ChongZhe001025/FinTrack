@@ -76,8 +76,8 @@ export default function Stats() {
     const fetchBaseStats = async () => {
       try {
         const [pieRes, barRes] = await Promise.all([
-            axios.get('http://localhost:8080/api/v1/stats/category'),
-            axios.get('http://localhost:8080/api/v1/stats/comparison'),
+            axios.get('/api/v1/stats/category'),
+            axios.get('/api/v1/stats/comparison'),
         ]);
         setPieData(pieRes.data || []);
         setBarData(barRes.data || []);
@@ -96,7 +96,7 @@ export default function Stats() {
           setIsWeeklyLoading(true);
           try {
               // 帶入參數 range
-              const res = await axios.get(`http://localhost:8080/api/v1/stats/weekly?range=${weeklyRange}`);
+              const res = await axios.get(`/api/v1/stats/weekly?range=${weeklyRange}`);
               setWeeklyData(res.data || []);
           } catch (error) {
               console.error("無法取得消費習慣", error);

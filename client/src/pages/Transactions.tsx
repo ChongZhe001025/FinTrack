@@ -74,8 +74,8 @@ export default function Transactions() {
     const fetchData = async () => {
       try {
         const [transRes, catRes] = await Promise.all([
-            axios.get('http://localhost:8080/api/v1/transactions'),
-            axios.get('http://localhost:8080/api/v1/categories')
+            axios.get('/api/v1/transactions'),
+            axios.get('/api/v1/categories')
         ]);
         setTransactions(transRes.data || []);
         setCategories(catRes.data || []);

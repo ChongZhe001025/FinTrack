@@ -1,9 +1,9 @@
 services:
-  # 1. MongoDB 資料庫服務
+  # 1) MongoDB
   mongo:
-    image: mongo:4.4  # ✨ 修改：鎖定 4.4 版本 (解決老舊 CPU AVX 崩潰問題)
+    image: mongo:4.4
     container_name: fintrack-mongo
-    restart: always
+    restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: password
@@ -12,23 +12,23 @@ services:
     volumes:
       - ./mongo_data:/data/db
 
-  # 2. Mongo Express 圖形化管理介面
+  # 2) Mongo Express
   mongo-express:
-    image: mongo-express
+    image: mongo-express:latest
     container_name: fintrack-express
-    restart: always
+    restart: unless-stopped
     ports:
       - "8081:8081"
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
       ME_CONFIG_MONGODB_ADMINPASSWORD: password
-      ME_CONFIG_MONGODB_URL: mongodb://root:password@mongo:27017/
+      ME_CONFIG_MONGODB_URL: mongodb://root:password@mongo:27017/?authSource=admin
       ME_CONFIG_BASICAUTH_USERNAME: admin
       ME_CONFIG_BASICAUTH_PASSWORD: pass
     depends_on:
       - mongo
 
-  # 3. Go API 服務
+  # 3) Go API
   server:
     image: golang:1.25.5
     container_name: fintrack-server
@@ -36,12 +36,20 @@ services:
     volumes:
       - ./server:/app
     command: sh -c "go mod download && go run ."
+    restart: unless-stopped
     ports:
       - "8080:8080"
+    environment:
+      MONGO_URI: mongodb://root:password@mongo:27017/?authSource=admin
+      MONGODB_URI: mongodb://root:password@mongo:27017/?authSource=admin
+      DB_NAME: fintrack_db
+
+      ALLOWED_ORIGINS: https://fintrack.czhuang.dev,http://localhost:5173
+      PORT: "8080"
     depends_on:
       - mongo
 
-  # 4. Vite 前端服務
+  # 4) Vite Frontend
   client:
     image: node:20
     container_name: fintrack-client
@@ -49,8 +57,8 @@ services:
     volumes:
       - ./client:/app
       - /app/node_modules
-    # ✨ 建議：明確指定 host 為 0.0.0.0 確保容器對外監聽
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    restart: unless-stopped
     ports:
       - "5173:5173"
     depends_on:

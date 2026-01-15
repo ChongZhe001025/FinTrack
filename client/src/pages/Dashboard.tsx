@@ -70,8 +70,8 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         const [statsRes, transRes] = await Promise.all([
-            axios.get('http://localhost:8080/api/v1/stats'),
-            axios.get('http://localhost:8080/api/v1/transactions')
+            axios.get('/api/v1/stats'),
+            axios.get('/api/v1/transactions')
         ]);
         setStats(statsRes.data);
         setTransactions(transRes.data || []);
