@@ -1,18 +1,16 @@
-version: '3.8'
-
 services:
   # 1. MongoDB 資料庫服務
   mongo:
-    image: mongo:latest
+    image: mongo:4.4  # ✨ 修改：鎖定 4.4 版本 (解決老舊 CPU AVX 崩潰問題)
     container_name: fintrack-mongo
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password  # 開發用密碼，簡單就好
+      MONGO_INITDB_ROOT_PASSWORD: password
     ports:
       - "27017:27017"
     volumes:
-      - ./mongo_data:/data/db  # 將資料持久化在本地資料夾，避免重開遺失
+      - ./mongo_data:/data/db
 
   # 2. Mongo Express 圖形化管理介面
   mongo-express:
@@ -25,8 +23,8 @@ services:
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
       ME_CONFIG_MONGODB_ADMINPASSWORD: password
       ME_CONFIG_MONGODB_URL: mongodb://root:password@mongo:27017/
-      ME_CONFIG_BASICAUTH_USERNAME: admin # 登入網頁介面的帳號
-      ME_CONFIG_BASICAUTH_PASSWORD: pass  # 登入網頁介面的密碼
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: pass
     depends_on:
       - mongo
 
@@ -51,7 +49,8 @@ services:
     volumes:
       - ./client:/app
       - /app/node_modules
-    command: sh -c "npm install && npm run dev -- --host"
+    # ✨ 建議：明確指定 host 為 0.0.0.0 確保容器對外監聽
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     ports:
       - "5173:5173"
     depends_on:
