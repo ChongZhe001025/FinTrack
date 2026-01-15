@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/incompatible-library */
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Check, Trash2 } from 'lucide-react';

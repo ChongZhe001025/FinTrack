@@ -1,11 +1,19 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, forwardRef } from 'react';
 import axios from 'axios';
-import { Loader2, AlertCircle, Edit2, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, AlertCircle, Edit2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Calendar, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import AddTransactionModal from '../components/AddTransactionModal';
 import clsx from 'clsx';
 
-// 定義中文映射 (用於顯示漂亮的類別名稱)
+// 1. 引入 DatePicker 相關套件
+import DatePicker, { registerLocale } from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { zhTW } from 'date-fns/locale'; 
+
+// 註冊繁體中文語系
+registerLocale('zh-TW', zhTW);
+
+// 定義中文映射
 const CATEGORY_LABELS: Record<string, string> = {
     Food: '🍔 餐飲',
     Transport: '🚗 交通',
@@ -30,7 +38,6 @@ interface Category {
   name: string;
 }
 
-// 排序設定型別
 type SortKey = 'date' | 'category' | 'amount';
 type SortDirection = 'asc' | 'desc';
 
@@ -39,23 +46,30 @@ interface SortConfig {
   direction: SortDirection;
 }
 
+const formatDate = (date: Date | null) => {
+    if (!date) return '';
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+};
+
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]); // 1. 儲存類別列表
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | undefined>(undefined);
 
-  // 2. 網址參數 (篩選用)
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryFilter = searchParams.get('category') || '';
 
-  // 排序狀態 (預設依日期降冪)
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [startDate, endDate] = dateRange;
+
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
 
-  // 初始化資料 (同時抓取交易紀錄與類別清單)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -81,17 +95,15 @@ export default function Transactions() {
       setIsEditModalOpen(true);
   };
 
-  // 3. 處理下拉選單變更
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       const value = e.target.value;
       if (value) {
-          setSearchParams({ category: value }); // 更新網址 ?category=Food
+          setSearchParams({ category: value });
       } else {
-          setSearchParams({}); // 清除篩選，顯示全部
+          setSearchParams({});
       }
   };
 
-  // 處理排序點擊
   const handleSort = (key: SortKey) => {
       setSortConfig(current => ({
           key,
@@ -99,15 +111,22 @@ export default function Transactions() {
       }));
   };
 
-  // 4. 核心邏輯：先篩選 -> 再排序
   const processedTransactions = useMemo(() => {
-      // 步驟 A: 篩選
       let data = [...transactions];
+      
       if (categoryFilter) {
           data = data.filter(t => t.category === categoryFilter);
       }
 
-      // 步驟 B: 排序
+      if (startDate) {
+          const startStr = formatDate(startDate);
+          data = data.filter(t => t.date >= startStr);
+      }
+      if (endDate) {
+          const endStr = formatDate(endDate);
+          data = data.filter(t => t.date <= endStr);
+      }
+
       data.sort((a, b) => {
           const { key, direction } = sortConfig;
           let comparison = 0;
@@ -130,9 +149,8 @@ export default function Transactions() {
       });
 
       return data;
-  }, [transactions, categoryFilter, sortConfig]);
+  }, [transactions, categoryFilter, startDate, endDate, sortConfig]);
 
-  // 排序圖示元件
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
       if (sortConfig.key !== columnKey) return <ArrowUpDown size={14} className="text-gray-300 ml-1" />;
       return sortConfig.direction === 'asc' 
@@ -140,38 +158,92 @@ export default function Transactions() {
         : <ArrowDown size={14} className="text-indigo-600 ml-1" />;
   };
 
+  // 2. 自訂 DatePicker 的 Trigger 按鈕元件
+  // 使用 forwardRef 讓 DatePicker 可以綁定點擊事件
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const CustomDateInput = forwardRef(({ value, onClick }: any, ref: any) => (
+    <div 
+        className={clsx(
+            "flex items-center gap-2 bg-white border px-3 py-2 rounded-lg cursor-pointer transition-all w-full md:w-auto min-w-[240px]",
+            // 如果有選日期，邊框加深；沒選則為灰色
+            value ? "border-indigo-300 text-indigo-700 bg-indigo-50/30" : "border-gray-200 text-gray-500 hover:border-gray-300"
+        )}
+        onClick={onClick}
+        ref={ref}
+    >
+        <Calendar size={18} className={value ? "text-indigo-500" : "text-gray-400"} />
+        
+        <span className="flex-1 text-sm font-medium">
+            {value || "選擇日期區間"}
+        </span>
+
+        {/* 清除按鈕：只有在有值的時候顯示 */}
+        {value && (
+            <div 
+                onClick={(e) => {
+                    e.stopPropagation(); // 防止觸發外層的 DatePicker 開啟
+                    setDateRange([null, null]);
+                }}
+                className="p-1 hover:bg-black/10 rounded-full text-gray-400 hover:text-gray-600 transition"
+                title="清除日期"
+            >
+                <X size={14} />
+            </div>
+        )}
+    </div>
+  ));
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h2 className="text-2xl font-bold text-gray-800">交易紀錄</h2>
+      {/* 覆寫 DatePicker 樣式 */}
+      <style>{`
+        .react-datepicker-wrapper { width: auto; }
+      `}</style>
+
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+        <h2 className="text-2xl font-bold text-gray-800 shrink-0">交易紀錄</h2>
         
-        {/* 5. 篩選器：下拉式選單 */}
-        <div className="w-full md:w-64 relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                <Filter size={16} />
-            </div>
-            <select
-                value={categoryFilter}
-                onChange={handleFilterChange}
-                className={clsx(
-                    "w-full pl-10 pr-10 py-2.5 bg-white border rounded-lg appearance-none text-sm font-medium transition-all cursor-pointer shadow-sm",
-                    "focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400",
-                    categoryFilter 
-                        ? "border-indigo-200 text-indigo-700 bg-indigo-50/50" 
-                        : "border-gray-200 text-gray-600 hover:border-gray-300"
-                )}
-            >
-                <option value="">所有類別</option>
-                <option disabled>──────────</option>
-                {categories.map(c => (
-                    <option key={c.id} value={c.name}>
-                        {CATEGORY_LABELS[c.name] || c.name}
-                    </option>
-                ))}
-            </select>
-            {/* 自訂下拉箭頭 */}
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto">
+            
+            {/* 3. 使用自訂 Input 的 DatePicker */}
+            <DatePicker
+                selectsRange={true}
+                startDate={startDate}
+                endDate={endDate}
+                onChange={(update) => setDateRange(update)}
+                isClearable={false} // 我們自己實作清除按鈕
+                dateFormat="yyyy/MM/dd"
+                locale="zh-TW"
+                customInput={<CustomDateInput />} // 使用上面定義的元件
+            />
+
+            {/* 類別篩選器 */}
+            <div className="w-full md:w-48 relative shrink-0">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                    <Filter size={16} />
+                </div>
+                <select
+                    value={categoryFilter}
+                    onChange={handleFilterChange}
+                    className={clsx(
+                        "w-full pl-10 pr-10 py-2.5 bg-white border rounded-lg appearance-none text-sm font-medium transition-all cursor-pointer shadow-sm",
+                        "focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400",
+                        categoryFilter 
+                            ? "border-indigo-200 text-indigo-700 bg-indigo-50/50" 
+                            : "border-gray-200 text-gray-600 hover:border-gray-300"
+                    )}
+                >
+                    <option value="">所有類別</option>
+                    <option disabled>──────────</option>
+                    {categories.map(c => (
+                        <option key={c.id} value={c.name}>
+                            {CATEGORY_LABELS[c.name] || c.name}
+                        </option>
+                    ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </div>
             </div>
         </div>
       </div>
@@ -189,14 +261,25 @@ export default function Transactions() {
             <Loader2 className="animate-spin mr-2" /> 載入中...
           </div>
         ) : processedTransactions.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
-            {categoryFilter ? '該類別沒有交易紀錄' : '目前還沒有任何紀錄'}
+          <div className="p-12 text-center text-gray-400 flex flex-col items-center gap-2">
+             <Filter className="opacity-20" size={48} />
+             <p>沒有符合篩選條件的交易紀錄</p>
+             {(categoryFilter || startDate || endDate) && (
+                <button 
+                    onClick={() => {
+                        setSearchParams({});
+                        setDateRange([null, null]);
+                    }}
+                    className="text-sm text-indigo-600 hover:underline"
+                >
+                    清除所有篩選條件
+                </button>
+             )}
           </div>
         ) : (
           <table className="w-full text-left min-w-[350px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {/* 可排序標題：日期 */}
                 <th className="p-0">
                     <button 
                         onClick={() => handleSort('date')}
@@ -206,7 +289,6 @@ export default function Transactions() {
                     </button>
                 </th>
                 
-                {/* 可排序標題：類別 */}
                 <th className="p-0">
                     <button 
                         onClick={() => handleSort('category')}
@@ -220,7 +302,6 @@ export default function Transactions() {
                     備註
                 </th>
                 
-                {/* 可排序標題：金額 */}
                 <th className="p-0">
                     <button 
                         onClick={() => handleSort('amount')}
