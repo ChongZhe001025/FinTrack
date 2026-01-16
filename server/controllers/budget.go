@@ -16,12 +16,14 @@ import (
 
 // SetBudget 新增或修改預算 (Upsert: 同月份同類別則更新，否則新增)
 func SetBudget(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
 	var input models.Budget
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	input.Owner = currentUser
 	collection := config.GetCollection("budgets")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -30,6 +32,7 @@ func SetBudget(c *gin.Context) {
 	filter := bson.M{
 		"category":   input.Category,
 		"year_month": input.YearMonth,
+		"owner":      currentUser,
 	}
 	update := bson.M{"$set": input}
 	opts := options.Update().SetUpsert(true)
@@ -45,6 +48,7 @@ func SetBudget(c *gin.Context) {
 
 // DeleteBudget 刪除預算
 func DeleteBudget(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
 	idParam := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
@@ -56,7 +60,8 @@ func DeleteBudget(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err = collection.DeleteOne(ctx, bson.M{"_id": objID})
+	filter := bson.M{"_id": objID, "owner": currentUser}
+	_, err = collection.DeleteOne(ctx, filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "刪除失敗"})
 		return
@@ -66,6 +71,7 @@ func DeleteBudget(c *gin.Context) {
 
 // GetBudgetStatus 取得指定月份的預算執行狀況
 func GetBudgetStatus(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
 	// 讀取月份參數，預設為當月 (格式 2026-01)
 	queryMonth := c.DefaultQuery("month", time.Now().Format("2006-01"))
 
@@ -74,7 +80,7 @@ func GetBudgetStatus(c *gin.Context) {
 
 	// 1. 取得該月份設定的所有預算
 	budgetColl := config.GetCollection("budgets")
-	cursor, err := budgetColl.Find(ctx, bson.M{"year_month": queryMonth})
+	cursor, err := budgetColl.Find(ctx, bson.M{"year_month": queryMonth, "owner": currentUser})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "無法讀取預算"})
 		return
@@ -104,6 +110,7 @@ func GetBudgetStatus(c *gin.Context) {
 		// 聚合查詢：只查該類別 + 該時間範圍
 		pipeline := mongo.Pipeline{
 			{{Key: "$match", Value: bson.D{
+				{Key: "owner", Value: currentUser},
 				{Key: "type", Value: "expense"},
 				{Key: "category", Value: b.Category},
 				{Key: "date", Value: bson.D{

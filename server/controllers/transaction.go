@@ -24,6 +24,7 @@ import (
 // @Success      200  {object}  models.Transaction
 // @Router       /transactions [post]
 func CreateTransaction(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
 	var input models.Transaction
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -31,6 +32,7 @@ func CreateTransaction(c *gin.Context) {
 		return
 	}
 
+	input.Owner = currentUser
 	input.ID = primitive.NewObjectID()
 	input.CreatedAt = time.Now()
 	input.UpdatedAt = time.Now()
@@ -56,6 +58,7 @@ func CreateTransaction(c *gin.Context) {
 // @Success      200  {array}  models.Transaction
 // @Router       /transactions [get]
 func GetTransactions(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
 	collection := config.GetCollection("transactions")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -63,7 +66,8 @@ func GetTransactions(c *gin.Context) {
 	// 修改重點：加入排序選項，依照 "date" 欄位倒序 (-1) 排列
 	opts := options.Find().SetSort(bson.D{{Key: "date", Value: -1}})
 
-	cursor, err := collection.Find(ctx, bson.M{}, opts)
+	filter := bson.M{"owner": currentUser}
+	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "無法讀取資料"})
 		return
@@ -92,6 +96,7 @@ func GetTransactions(c *gin.Context) {
 // @Success      200  {object}  map[string]interface{}
 // @Router       /stats [get]
 func GetDashboardStats(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
 	collection := config.GetCollection("transactions")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -99,6 +104,7 @@ func GetDashboardStats(c *gin.Context) {
 	// 使用 MongoDB Aggregation Pipeline 計算總和
 	// 類似 SQL: SELECT type, SUM(amount) FROM transactions GROUP BY type
 	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.D{{Key: "owner", Value: currentUser}}}},
 		{{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: "$type"},                                   // 依照 type 分組 (income/expense)
 			{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}}, // 加總 amount
@@ -152,6 +158,7 @@ func GetDashboardStats(c *gin.Context) {
 // @Success      200  {array}  map[string]interface{}
 // @Router       /stats/category [get]
 func GetCategoryStats(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
 	collection := config.GetCollection("transactions")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -161,7 +168,10 @@ func GetCategoryStats(c *gin.Context) {
 	// 2. $group: 依照 "category" 分組，並加總 "amount"
 	// 3. $sort: 依照總金額由大到小排序
 	pipeline := mongo.Pipeline{
-		{{Key: "$match", Value: bson.D{{Key: "type", Value: "expense"}}}},
+		{{Key: "$match", Value: bson.D{
+			{Key: "owner", Value: currentUser},
+			{Key: "type", Value: "expense"},
+		}}},
 		{{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: "$category"},
 			{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}},
@@ -199,6 +209,7 @@ func GetCategoryStats(c *gin.Context) {
 
 // UpdateTransaction 修改交易
 func UpdateTransaction(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
 	idParam := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
@@ -226,11 +237,13 @@ func UpdateTransaction(c *gin.Context) {
 			"category":   input.Category,
 			"date":       input.Date,
 			"note":       input.Note,
+			"owner":      currentUser,
 			"updated_at": input.UpdatedAt,
 		},
 	}
 
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
+	filter := bson.M{"_id": objID, "owner": currentUser}
+	result, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新失敗"})
 		return
@@ -246,6 +259,7 @@ func UpdateTransaction(c *gin.Context) {
 
 // DeleteTransaction 刪除交易
 func DeleteTransaction(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
 	idParam := c.Param("id")
 	objID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
@@ -257,7 +271,8 @@ func DeleteTransaction(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	result, err := collection.DeleteOne(ctx, bson.M{"_id": objID})
+	filter := bson.M{"_id": objID, "owner": currentUser}
+	result, err := collection.DeleteOne(ctx, filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "刪除失敗"})
 		return
@@ -279,6 +294,7 @@ func DeleteTransaction(c *gin.Context) {
 // @Success      200  {array}  map[string]interface{}
 // @Router       /stats/comparison [get]
 func GetMonthlyComparison(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
 	collection := config.GetCollection("transactions")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -299,6 +315,7 @@ func GetMonthlyComparison(c *gin.Context) {
 	getStats := func(start, end time.Time) (map[string]float64, error) {
 		pipeline := mongo.Pipeline{
 			{{Key: "$match", Value: bson.D{
+				{Key: "owner", Value: currentUser},
 				{Key: "type", Value: "expense"}, // 只看支出
 				{Key: "date", Value: bson.D{
 					{Key: "$gte", Value: start.Format("2006-01-02")},

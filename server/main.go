@@ -97,26 +97,37 @@ func GinRouter() *gin.Engine {
 	{
 		v1.GET("/ping", controllers.Ping)
 
-		// Transaction CRUD
-		v1.POST("/transactions", controllers.CreateTransaction)
-		v1.GET("/transactions", controllers.GetTransactions)
-		v1.PUT("/transactions/:id", controllers.UpdateTransaction)
-		v1.DELETE("/transactions/:id", controllers.DeleteTransaction)
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/login", controllers.Login)
+			auth.POST("/logout", controllers.Logout)
+			auth.GET("/me", controllers.CheckAuth)
+		}
 
-		// Stats
-		v1.GET("/stats", controllers.GetDashboardStats)
-		v1.GET("/stats/category", controllers.GetCategoryStats)
-		v1.GET("/stats/comparison", controllers.GetMonthlyComparison)
-		v1.GET("/stats/weekly", controllers.GetWeeklyHabits)
+		protected := v1.Group("/")
+		protected.Use(controllers.AuthRequired)
+		{
+			// Transaction CRUD
+			protected.POST("/transactions", controllers.CreateTransaction)
+			protected.GET("/transactions", controllers.GetTransactions)
+			protected.PUT("/transactions/:id", controllers.UpdateTransaction)
+			protected.DELETE("/transactions/:id", controllers.DeleteTransaction)
 
-		// Category
-		v1.GET("/categories", controllers.GetCategories)
-		v1.POST("/categories", controllers.CreateCategory)
+			// Stats
+			protected.GET("/stats", controllers.GetDashboardStats)
+			protected.GET("/stats/category", controllers.GetCategoryStats)
+			protected.GET("/stats/comparison", controllers.GetMonthlyComparison)
+			protected.GET("/stats/weekly", controllers.GetWeeklyHabits)
 
-		// Budgets
-		v1.POST("/budgets", controllers.SetBudget)
-		v1.GET("/budgets/status", controllers.GetBudgetStatus)
-		v1.DELETE("/budgets/:id", controllers.DeleteBudget)
+			// Category
+			protected.GET("/categories", controllers.GetCategories)
+			protected.POST("/categories", controllers.CreateCategory)
+
+			// Budgets
+			protected.POST("/budgets", controllers.SetBudget)
+			protected.GET("/budgets/status", controllers.GetBudgetStatus)
+			protected.DELETE("/budgets/:id", controllers.DeleteBudget)
+		}
 	}
 
 	return r

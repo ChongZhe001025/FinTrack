@@ -7,4 +7,6 @@ type Budget struct {
 	Category  string             `bson:"category" json:"category" binding:"required"`
 	Amount    float64            `bson:"amount" json:"amount" binding:"required"`
 	YearMonth string             `bson:"year_month" json:"year_month" binding:"required"` // 格式: "2026-01"
+	// Owner: 這筆預算的擁有者
+	Owner string `bson:"owner" json:"owner"`
 }

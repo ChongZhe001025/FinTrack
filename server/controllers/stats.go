@@ -21,6 +21,7 @@ type WeeklyStat struct {
 
 // GetWeeklyHabits 取得每週消費習慣 (支援 range 參數)
 func GetWeeklyHabits(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
 	collection := config.GetCollection("transactions")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -51,8 +52,9 @@ func GetWeeklyHabits(c *gin.Context) {
 	}
 
 	filter := bson.M{
-		"type": "expense",
-		"date": bson.M{"$gte": startDate},
+		"owner": currentUser,
+		"type":  "expense",
+		"date":  bson.M{"$gte": startDate},
 	}
 
 	cursor, err := collection.Find(ctx, filter)

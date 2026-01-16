@@ -29,6 +29,9 @@ type Transaction struct {
 	// Note: 備註 (選填)
 	Note string `bson:"note" json:"note" example:"午餐吃牛肉麵"`
 
+	// Owner: 這筆資料的擁有者
+	Owner string `bson:"owner" json:"owner"`
+
 	// CreatedAt: 建立時間
 	CreatedAt time.Time `bson:"created_at" json:"created_at"`
 
