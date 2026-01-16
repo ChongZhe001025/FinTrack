@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User, Eye, EyeOff } from 'lucide-react'; // 1. 新增引入 Eye, EyeOff
@@ -15,6 +15,10 @@ export default function Login() {
   const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = 'FinTrack | Login';
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -39,8 +43,8 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
             <Lock size={32} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">歡迎回來</h1>
-          <p className="text-gray-500 text-sm">FinTrack 個人記帳系統</p>
+          <h1 className="text-2xl font-bold text-gray-800">Welcome Back!</h1>
+          <p className="text-gray-500 text-sm">FinTrack</p>
         </div>
 
         {error && (

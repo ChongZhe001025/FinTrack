@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, List, PieChart, PlusCircle, Wallet, LogOut } from 'lucide-react';
 import clsx from 'clsx';
@@ -14,12 +14,23 @@ const NAV_ITEMS = [
   { to: '/transactions', icon: List, label: '紀錄' },
   { to: '/stats', icon: PieChart, label: '報表' },
 ];
+const APP_TITLE = 'FinTrack';
+const PAGE_TITLES: Record<string, string> = {
+  '/': 'Dashboard',
+  '/transactions': 'Transactions',
+  '/stats': 'Stats',
+};
 
 export default function Layout({ children }: LayoutProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
+
+  useEffect(() => {
+    const pageTitle = PAGE_TITLES[location.pathname];
+    document.title = pageTitle ? `${APP_TITLE} | ${pageTitle}` : APP_TITLE;
+  }, [location.pathname]);
 
   const handleLogout = () => {
     if (confirm("確定要登出嗎？")) {
