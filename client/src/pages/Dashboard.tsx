@@ -1,8 +1,11 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, forwardRef } from 'react';
 import axios from 'axios';
-import { TrendingUp, TrendingDown, DollarSign, Loader2, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Loader2, Calendar, X } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import clsx from 'clsx';
+import DatePicker, { registerLocale } from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { zhTW } from 'date-fns/locale';
 
 interface DashboardStats {
   total_income: number;
@@ -36,6 +39,21 @@ const normalizeTransactions = (value: unknown): Transaction[] => {
     }
   }
   return [];
+};
+
+// 註冊繁體中文語系
+registerLocale('zh-TW', zhTW);
+
+const formatDate = (date: Date | null) => {
+  if (!date) return '';
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+  return localDate.toISOString().split('T')[0];
+};
+
+const formatDisplayDate = (date: Date | null) => {
+  const value = formatDate(date);
+  return value ? value.replace(/-/g, '/') : '';
 };
 
 // 1. 修改：加入 'custom' 選項
@@ -78,9 +96,9 @@ export default function Dashboard() {
   
   const [timeRange, setTimeRange] = useState<TimeRange>('7days');
   
-  // 2. 新增：自訂區間的開始與結束日期 (預設為今天)
-  const [customStart, setCustomStart] = useState(new Date().toISOString().split('T')[0]);
-  const [customEnd, setCustomEnd] = useState(new Date().toISOString().split('T')[0]);
+  // 2. 新增：自訂區間的開始與結束日期
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [startDate, endDate] = dateRange;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -108,6 +126,8 @@ export default function Dashboard() {
   const chartData = useMemo<ChartData[]>(() => {
     const now = new Date();
     const dailyExpenses = new Map<string, number>();
+    const startStr = formatDate(startDate);
+    const endStr = formatDate(endDate);
 
     const cutoffDate = new Date();
     // 將 cutoffDate 設為當天的 00:00:00，確保比較準確
@@ -120,7 +140,7 @@ export default function Dashboard() {
     } else if (timeRange === 'thisMonth') {
         cutoffDate.setDate(1);
     }
-    // 注意：如果是 'custom'，我們會在下面迴圈內直接比較 customStart 和 customEnd
+    // 注意：如果是 'custom'，我們會在下面迴圈內直接比較 startStr 和 endStr
 
     transactions.forEach(t => {
         if (t.type === 'expense') {
@@ -134,10 +154,7 @@ export default function Dashboard() {
                 isValid = tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
             } else if (timeRange === 'custom') {
                 // 自訂區間邏輯：比對交易日期是否在 Start 和 End 之間
-                const startDate = new Date(customStart);
-                const endDate = new Date(customEnd);
-                // 結束日期也包含當天，所以要設為當天比較
-                isValid = tDate >= startDate && tDate <= endDate;
+                isValid = (!startStr || t.date >= startStr) && (!endStr || t.date <= endStr);
             } else {
                 // 7天 或 30天
                 isValid = tDate >= cutoffDate;
@@ -157,7 +174,40 @@ export default function Dashboard() {
             amount 
         }))
         .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
-  }, [transactions, timeRange, customStart, customEnd]); // 注意：這裡要加入 customStart, customEnd 到依賴陣列
+  }, [transactions, timeRange, startDate, endDate]); // 注意：這裡要加入 startDate, endDate 到依賴陣列
+
+  // 4. 自訂 DatePicker 的 Trigger 按鈕元件
+  // 使用 forwardRef 讓 DatePicker 可以綁定點擊事件
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const CustomDateInput = forwardRef(({ value, onClick }: any, ref: any) => (
+    <div 
+        className={clsx(
+            "flex items-center gap-2 bg-white border px-3 py-2 rounded-lg cursor-pointer transition-all w-full md:w-auto min-w-[240px]",
+            value ? "border-indigo-300 text-indigo-700 bg-indigo-50/30" : "border-gray-200 text-gray-500 hover:border-gray-300"
+        )}
+        onClick={onClick}
+        ref={ref}
+    >
+        <Calendar size={18} className={value ? "text-indigo-500" : "text-gray-400"} />
+        
+        <span className="flex-1 text-sm font-medium">
+            {value || "選擇日期區間"}
+        </span>
+
+        {value && (
+            <div 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setDateRange([null, null]);
+                }}
+                className="p-1 hover:bg-black/10 rounded-full text-gray-400 hover:text-gray-600 transition"
+                title="清除日期"
+            >
+                <X size={14} />
+            </div>
+        )}
+    </div>
+  ));
 
   if (isLoading) {
       return (
@@ -169,6 +219,11 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* 覆寫 DatePicker 樣式 */}
+      <style>{`
+        .react-datepicker-wrapper { width: auto; }
+      `}</style>
+
       <h2 className="text-2xl font-bold text-gray-800">本月概況</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -182,13 +237,13 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 支出趨勢
-                {/* 4. 當選擇自訂時，顯示日期選擇器 */}
-                {timeRange === 'custom' && (
+                {/* 5. 當選擇自訂時，顯示日期區間 */}
+                {timeRange === 'custom' && (startDate || endDate) && (
                     <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-2 py-1 rounded-md animate-fade-in">
                         <Calendar size={14} />
-                        <span>{customStart}</span>
+                        <span>{formatDisplayDate(startDate) || '開始日期'}</span>
                         <span>➔</span>
-                        <span>{customEnd}</span>
+                        <span>{formatDisplayDate(endDate) || '結束日期'}</span>
                     </div>
                 )}
             </h3>
@@ -215,23 +270,18 @@ export default function Dashboard() {
                     ))}
                 </div>
 
-                {/* 5. 自訂日期的輸入框 (只有選中 'custom' 時才顯示) */}
+                {/* 6. 自訂日期的輸入框 (只有選中 'custom' 時才顯示) */}
                 {timeRange === 'custom' && (
-                    <div className="flex items-center gap-2 bg-white border border-gray-200 p-1.5 rounded-lg shadow-sm animate-fade-in w-full md:w-auto">
-                        <input 
-                            type="date" 
-                            value={customStart}
-                            onChange={(e) => setCustomStart(e.target.value)}
-                            className="text-sm bg-transparent border-none focus:ring-0 text-gray-600 p-0"
-                        />
-                        <span className="text-gray-400 text-xs">至</span>
-                        <input 
-                            type="date" 
-                            value={customEnd}
-                            onChange={(e) => setCustomEnd(e.target.value)}
-                            className="text-sm bg-transparent border-none focus:ring-0 text-gray-600 p-0"
-                        />
-                    </div>
+                    <DatePicker
+                        selectsRange={true}
+                        startDate={startDate}
+                        endDate={endDate}
+                        onChange={(update) => setDateRange(update)}
+                        isClearable={false}
+                        dateFormat="yyyy/MM/dd"
+                        locale="zh-TW"
+                        customInput={<CustomDateInput />}
+                    />
                 )}
             </div>
         </div>
