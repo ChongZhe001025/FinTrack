@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Stats from './pages/Stats';
 import Login from './pages/Login';
+import CategorySettings from './pages/CategorySettings';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function AppContent() {
@@ -27,6 +28,7 @@ function AppContent() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/stats" element={<Stats />} />
+        <Route path="/categories" element={<CategorySettings />} />
       </Routes>
     </Layout>
   );

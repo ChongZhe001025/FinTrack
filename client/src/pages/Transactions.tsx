@@ -13,17 +13,6 @@ import { zhTW } from 'date-fns/locale';
 // 註冊繁體中文語系
 registerLocale('zh-TW', zhTW);
 
-// 定義中文映射
-const CATEGORY_LABELS: Record<string, string> = {
-    Food: '🍔 餐飲',
-    Transport: '🚗 交通',
-    Shopping: '🛍️ 購物',
-    Housing: '🏠 居住',
-    Entertainment: '🎬 娛樂',
-    Medical: '💊 醫療',
-    Salary: '💰 薪水'
-};
-
 interface Transaction {
   id: string;
   type: 'income' | 'expense';
@@ -139,10 +128,8 @@ export default function Transactions() {
                   comparison = a.amount - b.amount;
                   break;
               case 'category':
-                  { const nameA = CATEGORY_LABELS[a.category] || a.category;
-                  const nameB = CATEGORY_LABELS[b.category] || b.category;
-                  comparison = nameA.localeCompare(nameB, 'zh-Hant');
-                  break; }
+                  comparison = a.category.localeCompare(b.category, 'zh-Hant');
+                  break;
           }
 
           return direction === 'asc' ? comparison : -comparison;
@@ -237,7 +224,7 @@ export default function Transactions() {
                     <option disabled>──────────</option>
                     {categories.map(c => (
                         <option key={c.id} value={c.name}>
-                            {CATEGORY_LABELS[c.name] || c.name}
+                            {c.name}
                         </option>
                     ))}
                 </select>
@@ -320,7 +307,7 @@ export default function Transactions() {
                   
                   <td className="py-4 px-4 md:px-6 text-xs md:text-sm">
                     <span className="px-2 py-1 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium bg-gray-100 text-gray-700">
-                      {CATEGORY_LABELS[t.category] || t.category}
+                      {t.category}
                     </span>
                     <div className="md:hidden text-[10px] text-gray-400 mt-1 truncate max-w-[80px]">
                         {t.note}

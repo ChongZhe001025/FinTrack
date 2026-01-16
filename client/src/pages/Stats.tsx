@@ -8,16 +8,6 @@ import { Loader2, PieChart as PieIcon, ChevronRight, BarChart3, CalendarDays } f
 import { useNavigate } from 'react-router-dom';
 import BudgetSection from '../components/BudgetSection';
 
-const CATEGORY_LABELS: Record<string, string> = {
-  Food: '🍔 餐飲',
-  Transport: '🚗 交通',
-  Shopping: '🛍️ 購物',
-  Housing: '🏠 居住',
-  Entertainment: '🎬 娛樂',
-  Medical: '💊 醫療',
-  Salary: '💰 薪水'
-};
-
 interface CategoryStat {
   category: string;
   amount: number;
@@ -113,7 +103,7 @@ export default function Stats() {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 border border-gray-100 shadow-lg rounded-lg text-sm">
-          <p className="font-bold text-gray-800 mb-2">{CATEGORY_LABELS[label || ''] || label}</p>
+          <p className="font-bold text-gray-800 mb-2">{label}</p>
           <p className="text-indigo-600">本月: NT$ {payload[0]?.value.toLocaleString()}</p>
           <p className="text-gray-400">上月: NT$ {payload[1]?.value.toLocaleString()}</p>
         </div>
@@ -190,7 +180,7 @@ export default function Stats() {
                       style={{ backgroundColor: COLORS[index % COLORS.length] }}
                     ></div>
                     <span className="font-medium text-sm text-gray-700 group-hover:text-indigo-700">
-                      {CATEGORY_LABELS[item.category] || item.category}
+                      {item.category}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -223,7 +213,7 @@ export default function Stats() {
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                             <XAxis 
                                 dataKey="category" 
-                                tickFormatter={(val) => CATEGORY_LABELS[val]?.charAt(0) + CATEGORY_LABELS[val]?.charAt(1) || val} 
+                                tickFormatter={(val) => val} 
                                 axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} interval={0}
                             />
                             <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />

@@ -122,6 +122,8 @@ func GinRouter() *gin.Engine {
 			// Category
 			protected.GET("/categories", controllers.GetCategories)
 			protected.POST("/categories", controllers.CreateCategory)
+			protected.PUT("/categories/:id", controllers.UpdateCategory)
+			protected.DELETE("/categories/:id", controllers.DeleteCategory)
 
 			// Budgets
 			protected.POST("/budgets", controllers.SetBudget)

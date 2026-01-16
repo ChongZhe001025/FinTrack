@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, List, PieChart, PlusCircle, Wallet, LogOut } from 'lucide-react';
+import { LayoutDashboard, List, PieChart, PlusCircle, Wallet, LogOut, Tags } from 'lucide-react';
 import clsx from 'clsx';
 import AddTransactionModal from './AddTransactionModal';
 import { useAuth } from '../context/AuthContext';
@@ -13,12 +13,14 @@ const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, label: '總覽' },
   { to: '/transactions', icon: List, label: '紀錄' },
   { to: '/stats', icon: PieChart, label: '報表' },
+  { to: '/categories', icon: Tags, label: '分類管理' },
 ];
 const APP_TITLE = 'FinTrack';
 const PAGE_TITLES: Record<string, string> = {
-  '/': 'Dashboard',
-  '/transactions': 'Transactions',
-  '/stats': 'Stats',
+  '/': '總覽',
+  '/transactions': '紀錄',
+  '/stats': '報表',
+  '/categories': '分類管理',
 };
 
 export default function Layout({ children }: LayoutProps) {

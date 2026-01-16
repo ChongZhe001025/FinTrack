@@ -4,16 +4,6 @@ import axios from 'axios';
 import { Target, Edit3, X, Check, AlertTriangle, ChevronLeft, ChevronRight, Trash2, Plus } from 'lucide-react';
 import clsx from 'clsx';
 
-const CATEGORY_LABELS: Record<string, string> = {
-  Food: '🍔 餐飲',
-  Transport: '🚗 交通',
-  Shopping: '🛍️ 購物',
-  Housing: '🏠 居住',
-  Entertainment: '🎬 娛樂',
-  Medical: '💊 醫療',
-  Salary: '💰 薪水'
-};
-
 interface BudgetStatus {
   id: string;
   category: string;
@@ -213,7 +203,7 @@ export default function BudgetSection() {
                   <div key={b.id} className="group">
                       <div className="flex justify-between items-center mb-1">
                           <span className="font-bold text-gray-700 flex items-center gap-2">
-                              {CATEGORY_LABELS[b.category] || b.category}
+                              {b.category}
                           </span>
                           
                           <div className="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
@@ -285,7 +275,7 @@ export default function BudgetSection() {
                                 >
                                     {categories.map(c => (
                                         <option key={c.id} value={c.name}>
-                                            {CATEGORY_LABELS[c.name] || c.name}
+                                            {c.name}
                                         </option>
                                     ))}
                                     

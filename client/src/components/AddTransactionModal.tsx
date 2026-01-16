@@ -5,17 +5,6 @@ import { X, Check, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import axios from 'axios';
 
-// 1. 定義預設類別的顯示名稱 (中文 + Icon)
-const CATEGORY_LABELS: Record<string, string> = {
-  Food: '🍔 餐飲',
-  Transport: '🚗 交通',
-  Shopping: '🛍️ 購物',
-  Housing: '🏠 居住',
-  Entertainment: '🎬 娛樂',
-  Medical: '💊 醫療',
-  Salary: '💰 薪水'
-};
-
 interface Transaction {
   id: string;
   type: 'expense' | 'income';
@@ -46,11 +35,11 @@ interface TransactionModalProps {
 }
 
 export default function TransactionModal({ isOpen, onClose, editData }: TransactionModalProps) {
-  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormInputs>({
+  const { register, handleSubmit, watch, setValue, reset, getValues, formState: { errors } } = useForm<TransactionFormInputs>({
     defaultValues: {
       type: 'expense',
       date: new Date().toISOString().split('T')[0],
-      category: 'Food'
+      category: ''
     }
   });
 
@@ -79,7 +68,7 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
         reset({
             type: 'expense',
             date: new Date().toISOString().split('T')[0],
-            category: 'Food', // 預設值
+            category: '',
             amount: undefined,
             note: ''
         });
@@ -88,6 +77,15 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
       setNewCategoryName('');
     }
   }, [isOpen, editData, setValue, reset]);
+
+  useEffect(() => {
+    if (!isOpen || editData || categories.length === 0) return;
+    const currentCategory = getValues('category');
+    const hasCurrent = categories.some((category) => category.name === currentCategory);
+    if (!currentCategory || !hasCurrent) {
+      setValue('category', categories[0].name);
+    }
+  }, [isOpen, editData, categories, getValues, setValue]);
 
   // 取得類別列表
   const fetchCategories = async () => {
@@ -254,10 +252,9 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
                         onChange={handleCategoryChange}
                         className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-indigo-400 appearance-none"
                         >
-                            {/* 2. 顯示類別：如果有 Mapping 就顯示中文，否則顯示原始名稱 */}
                             {categories.map(c => (
                                 <option key={c.id} value={c.name}>
-                                    {CATEGORY_LABELS[c.name] || c.name}
+                                    {c.name}
                                 </option>
                             ))}
                             
