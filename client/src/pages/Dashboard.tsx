@@ -22,6 +22,22 @@ interface ChartData {
   amount: number;
 }
 
+const normalizeTransactions = (value: unknown): Transaction[] => {
+  if (Array.isArray(value)) {
+    return value as Transaction[];
+  }
+  if (value && typeof value === 'object') {
+    const record = value as { data?: unknown; transactions?: unknown };
+    if (Array.isArray(record.data)) {
+      return record.data as Transaction[];
+    }
+    if (Array.isArray(record.transactions)) {
+      return record.transactions as Transaction[];
+    }
+  }
+  return [];
+};
+
 // 1. 修改：加入 'custom' 選項
 type TimeRange = '7days' | '30days' | 'thisMonth' | 'custom';
 
@@ -74,7 +90,11 @@ export default function Dashboard() {
             axios.get('/api/v1/transactions')
         ]);
         setStats(statsRes.data);
-        setTransactions(transRes.data || []);
+        const normalizedTransactions = normalizeTransactions(transRes.data);
+        if (normalizedTransactions.length === 0 && !Array.isArray(transRes.data)) {
+          console.warn('Unexpected transactions response:', transRes.data);
+        }
+        setTransactions(normalizedTransactions);
       } catch (error) {
         console.error("無法取得 Dashboard 資料:", error);
       } finally {
