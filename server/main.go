@@ -1,12 +1,10 @@
 package main
 
 import (
-	"context"
 	"os"
 	"server/config"
 	"server/controllers"
 	_ "server/docs"
-	"server/models"
 	"strings"
 	"time"
 
@@ -14,8 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func main() {
@@ -26,9 +22,6 @@ func main() {
 
 	config.ConnectDB()
 
-	// 初始化預設類別種子資料
-	seedCategories()
-
 	r := GinRouter()
 
 	// 2. 動態獲取 Port (雲端平台通常會透過環境變數 PORT 指定)
@@ -38,29 +31,6 @@ func main() {
 	}
 
 	r.Run(":" + port)
-}
-
-func seedCategories() {
-	collection := config.GetCollection("categories")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// 檢查是否已經有類別
-	count, _ := collection.CountDocuments(ctx, bson.M{})
-	if count == 0 {
-		defaults := []interface{}{
-			models.Category{ID: primitive.NewObjectID(), Name: "Food", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Transport", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Shopping", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Housing", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Entertainment", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Medical", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Salary", Type: "income"},
-		}
-		collection.InsertMany(ctx, defaults)
-		// 建議：生產環境改用 log 套件，避免使用 println
-		// log.Println("🌱 預設類別已初始化！")
-	}
 }
 
 func GinRouter() *gin.Engine {
