@@ -118,6 +118,7 @@ func GinRouter() *gin.Engine {
 			protected.GET("/stats/category", controllers.GetCategoryStats)
 			protected.GET("/stats/comparison", controllers.GetMonthlyComparison)
 			protected.GET("/stats/weekly", controllers.GetWeeklyHabits)
+			protected.GET("/reports/yearly", controllers.GetYearlyReport)
 
 			// Category
 			protected.GET("/categories", controllers.GetCategories)

@@ -65,6 +65,10 @@ export default function Transactions() {
   const categoryFilter = searchParams.get('category') || '';
   const monthParam = searchParams.get('month') || '';
   const [currentMonth, setCurrentMonth] = useState(() => monthParam || new Date().toISOString().slice(0, 7));
+  const maxMonthStart = new Date();
+  maxMonthStart.setHours(0, 0, 0, 0);
+  maxMonthStart.setDate(1);
+  maxMonthStart.setMonth(maxMonthStart.getMonth() + 12);
 
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [startDate, endDate] = dateRange;
@@ -112,11 +116,21 @@ export default function Transactions() {
   const changeMonth = (offset: number) => {
       const date = new Date(currentMonth + "-01");
       date.setMonth(date.getMonth() + offset);
+      if (date.getTime() > maxMonthStart.getTime()) {
+        return;
+      }
       const nextMonth = date.toISOString().slice(0, 7);
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set('month', nextMonth);
       setSearchParams(nextParams);
   };
+
+  const [selectedYear, selectedMonth] = currentMonth.split('-').map(Number);
+  const selectedMonthDate = new Date(selectedYear, selectedMonth - 1, 1);
+  const isNextDisabled =
+    Number.isInteger(selectedYear) &&
+    Number.isInteger(selectedMonth) &&
+    selectedMonthDate.getTime() >= maxMonthStart.getTime();
 
   const handleEditClick = (transaction: Transaction) => {
       setSelectedTransaction(transaction);
@@ -251,7 +265,15 @@ export default function Transactions() {
               <ChevronLeft size={18} className="text-gray-600" />
             </button>
             <span className="font-bold text-gray-700 w-20 text-center">{currentMonth}</span>
-            <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
+            <button
+              onClick={() => changeMonth(1)}
+              disabled={isNextDisabled}
+              className={`p-1 rounded transition ${
+                isNextDisabled
+                  ? 'opacity-50 cursor-not-allowed'
+                  : 'hover:bg-white hover:shadow-sm'
+              }`}
+            >
               <ChevronRight size={18} className="text-gray-600" />
             </button>
           </div>

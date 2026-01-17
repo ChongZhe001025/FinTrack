@@ -101,6 +101,10 @@ export default function Dashboard() {
   
   const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [timeRange, setTimeRange] = useState<TimeRange>('7days');
+  const maxMonthStart = new Date();
+  maxMonthStart.setHours(0, 0, 0, 0);
+  maxMonthStart.setDate(1);
+  maxMonthStart.setMonth(maxMonthStart.getMonth() + 12);
   
   // 2. 新增：自訂區間的開始與結束日期
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
@@ -131,8 +135,17 @@ export default function Dashboard() {
   const changeMonth = (offset: number) => {
     const date = new Date(currentMonth + "-01");
     date.setMonth(date.getMonth() + offset);
+    if (date.getTime() > maxMonthStart.getTime()) {
+      return;
+    }
     setCurrentMonth(date.toISOString().slice(0, 7));
   };
+  const [selectedYear, selectedMonth] = currentMonth.split('-').map(Number);
+  const selectedMonthDate = new Date(selectedYear, selectedMonth - 1, 1);
+  const isNextDisabled =
+    Number.isInteger(selectedYear) &&
+    Number.isInteger(selectedMonth) &&
+    selectedMonthDate.getTime() >= maxMonthStart.getTime();
 
   // 3. 修改 useMemo 邏輯，加入 custom 判斷
   const chartData = useMemo<ChartData[]>(() => {
@@ -260,7 +273,15 @@ export default function Dashboard() {
             <ChevronLeft size={18} className="text-gray-600" />
           </button>
           <span className="font-bold text-gray-700 w-20 text-center">{currentMonth}</span>
-          <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
+          <button
+            onClick={() => changeMonth(1)}
+            disabled={isNextDisabled}
+            className={`p-1 rounded transition ${
+              isNextDisabled
+                ? 'opacity-50 cursor-not-allowed'
+                : 'hover:bg-white hover:shadow-sm'
+            }`}
+          >
             <ChevronRight size={18} className="text-gray-600" />
           </button>
         </div>

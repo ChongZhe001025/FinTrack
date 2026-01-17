@@ -60,10 +60,17 @@ export default function Stats() {
 
   // 新增：支出占比/明細/對比 的月份（預設當前月份）
   const [baseMonth, setBaseMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const maxMonthStart = new Date();
+  maxMonthStart.setHours(0, 0, 0, 0);
+  maxMonthStart.setDate(1);
+  maxMonthStart.setMonth(maxMonthStart.getMonth() + 12);
 
   const changeMonth = (offset: number) => {
     const d = new Date(baseMonth + '-01');
     d.setMonth(d.getMonth() + offset);
+    if (d.getTime() > maxMonthStart.getTime()) {
+      return;
+    }
     setBaseMonth(d.toISOString().slice(0, 7));
   };
 
@@ -106,6 +113,12 @@ export default function Stats() {
   }, [weeklyRange]);
 
   const totalExpense = pieData.reduce((sum, item) => sum + item.amount, 0);
+  const [selectedYear, selectedMonth] = baseMonth.split('-').map(Number);
+  const selectedMonthDate = new Date(selectedYear, selectedMonth - 1, 1);
+  const isNextDisabled =
+    Number.isInteger(selectedYear) &&
+    Number.isInteger(selectedMonth) &&
+    selectedMonthDate.getTime() >= maxMonthStart.getTime();
 
   const CustomBarTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
@@ -135,14 +148,22 @@ export default function Stats() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2">
           <PieIcon className="text-indigo-600" />
-          <h2 className="text-2xl font-bold text-gray-800 shrink-0">支出分析</h2>
+          <h2 className="text-2xl font-bold text-gray-800 shrink-0">每月報表</h2>
         </div>
         <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg">
           <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
             <ChevronLeft size={18} className="text-gray-600" />
           </button>
           <span className="font-bold text-gray-700 w-20 text-center">{baseMonth}</span>
-          <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
+          <button
+            onClick={() => changeMonth(1)}
+            disabled={isNextDisabled}
+            className={`p-1 rounded transition ${
+              isNextDisabled
+                ? 'opacity-50 cursor-not-allowed'
+                : 'hover:bg-white hover:shadow-sm'
+            }`}
+          >
             <ChevronRight size={18} className="text-gray-600" />
           </button>
         </div>
@@ -232,7 +253,7 @@ export default function Stats() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
                 <div className="flex items-center gap-2">
                     <BarChart3 className="text-indigo-600" />
-                    <h3 className="text-lg font-bold text-gray-800">月度對比 (本月 vs 上月)</h3>
+                    <h3 className="text-lg font-bold text-gray-800">上月 vs 本月</h3>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-gray-500">
                     <div className="flex items-center gap-1.5">
