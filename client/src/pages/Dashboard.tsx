@@ -1,11 +1,12 @@
 import { useEffect, useState, useMemo, forwardRef } from 'react';
 import axios from 'axios';
-import { TrendingUp, TrendingDown, DollarSign, Loader2, Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Loader2, Calendar, X, ChevronLeft, ChevronRight, LayoutDashboard } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import clsx from 'clsx';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { zhTW } from 'date-fns/locale';
+import BudgetSection from '../components/BudgetSection';
 
 interface DashboardStats {
   total_income: number;
@@ -249,13 +250,16 @@ export default function Dashboard() {
         .react-datepicker-wrapper { width: auto; }
       `}</style>
 
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h2 className="text-2xl font-bold text-gray-800">月度概況</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-2">
+          <LayoutDashboard className="text-indigo-600" />
+          <h2 className="text-2xl font-bold text-gray-800 shrink-0">月度概況</h2>
+        </div>
         <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg">
           <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
             <ChevronLeft size={18} className="text-gray-600" />
           </button>
-          <span className="font-bold text-gray-700 w-20 text-center">{stats.month || currentMonth}</span>
+          <span className="font-bold text-gray-700 w-20 text-center">{currentMonth}</span>
           <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
             <ChevronRight size={18} className="text-gray-600" />
           </button>
@@ -357,6 +361,8 @@ export default function Dashboard() {
             </div>
         )}
       </div>
+
+      <BudgetSection month={currentMonth} />
     </div>
   );
 }

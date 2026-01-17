@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Trash2, Edit2, Plus, Check, X, Tag } from 'lucide-react';
@@ -82,11 +83,12 @@ export default function CategorySettings() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Tag className="text-indigo-600" /> 分類標籤管理
-        </h2>
+    <div className="max-w-4xl mx-auto space-y-6 pt-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Tag className="text-indigo-600" />
+          <h2 className="text-2xl font-bold text-gray-800 shrink-0">分類標籤管理</h2>
+        </div>
         <button
           onClick={() => setIsAdding(true)}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition"

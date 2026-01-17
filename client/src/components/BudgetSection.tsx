@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Target, Edit3, X, Check, AlertTriangle, ChevronLeft, ChevronRight, Trash2, Plus } from 'lucide-react';
+import { Target, Edit3, X, Check, AlertTriangle, ChevronRight, Trash2, Plus } from 'lucide-react';
 import clsx from 'clsx';
 
 interface BudgetStatus {
@@ -19,13 +19,14 @@ interface Category {
   type?: string;
 }
 
-export default function BudgetSection() {
+interface BudgetSectionProps {
+  month: string;
+}
+
+export default function BudgetSection({ month }: BudgetSectionProps) {
   const [budgets, setBudgets] = useState<BudgetStatus[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  
-  // 月份控制
-  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7));
 
   // Modal 狀態
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,7 +46,7 @@ export default function BudgetSection() {
     setIsLoading(true);
     try {
       const [budgetRes, catRes] = await Promise.all([
-        axios.get(`/api/v1/budgets/status?month=${currentMonth}`),
+        axios.get(`/api/v1/budgets/status?month=${month}`),
         axios.get('/api/v1/categories')
       ]);
       setBudgets(budgetRes.data || []);
@@ -59,13 +60,7 @@ export default function BudgetSection() {
 
   useEffect(() => {
     fetchData();
-  }, [currentMonth]);
-
-  const changeMonth = (offset: number) => {
-      const date = new Date(currentMonth + "-01");
-      date.setMonth(date.getMonth() + offset);
-      setCurrentMonth(date.toISOString().slice(0, 7));
-  };
+  }, [month]);
 
   // 2. 開啟 Modal
   const openModal = (budget?: BudgetStatus) => {
@@ -137,7 +132,7 @@ export default function BudgetSection() {
       await axios.post('/api/v1/budgets', {
         category: selectedCategory,
         amount: Number(amount),
-        year_month: currentMonth
+        year_month: month
       });
       setIsModalOpen(false);
       fetchData();
@@ -169,17 +164,10 @@ export default function BudgetSection() {
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
            <Target className="text-rose-500" />
-           <h3 className="text-lg font-bold text-gray-800">預算規劃與回顧</h3>
-        </div>
-
-        <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg">
-            <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
-                <ChevronLeft size={18} className="text-gray-600" />
-            </button>
-            <span className="font-bold text-gray-700 w-20 text-center">{currentMonth}</span>
-            <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
-                <ChevronRight size={18} className="text-gray-600" />
-            </button>
+           <h3 className="text-lg font-bold text-gray-800">
+              預算規劃與回顧
+              <span className="ml-2 text-xs text-gray-400">({month})</span>
+           </h3>
         </div>
 
         <button 
@@ -255,7 +243,7 @@ export default function BudgetSection() {
             <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 animate-fade-in">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-gray-800">
-                        {editMode ? '修改預算' : '新增預算'} ({currentMonth})
+                        {editMode ? '修改預算' : '新增預算'} ({month})
                     </h3>
                     <button onClick={() => setIsModalOpen(false)}><X size={20} className="text-gray-400" /></button>
                 </div>

@@ -4,9 +4,8 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as PieTooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as BarTooltip
 } from 'recharts';
-import { Loader2, PieChart as PieIcon, ChevronRight, BarChart3, CalendarDays } from 'lucide-react';
+import { Loader2, PieChart as PieIcon, ChevronLeft, ChevronRight, BarChart3, CalendarDays, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import BudgetSection from '../components/BudgetSection';
 
 interface CategoryStat {
   category: string;
@@ -59,15 +58,24 @@ export default function Stats() {
   const [weeklyRange, setWeeklyRange] = useState('90days');
   const [isWeeklyLoading, setIsWeeklyLoading] = useState(false);
 
+  // 新增：支出占比/明細/對比 的月份（預設當前月份）
+  const [baseMonth, setBaseMonth] = useState(() => new Date().toISOString().slice(0, 7));
+
+  const changeMonth = (offset: number) => {
+    const d = new Date(baseMonth + '-01');
+    d.setMonth(d.getMonth() + offset);
+    setBaseMonth(d.toISOString().slice(0, 7));
+  };
+
   const navigate = useNavigate();
 
-  // 2. 初始載入：圓餅圖 & 月度對比 (這些不需要常變動)
+  // 2. 載入：圓餅圖 & 月度對比 (依月份變動)
   useEffect(() => {
     const fetchBaseStats = async () => {
       try {
         const [pieRes, barRes] = await Promise.all([
-            axios.get('/api/v1/stats/category'),
-            axios.get('/api/v1/stats/comparison'),
+            axios.get(`/api/v1/stats/category?month=${baseMonth}`),
+            axios.get(`/api/v1/stats/comparison?month=${baseMonth}`),
         ]);
         setPieData(pieRes.data || []);
         setBarData(barRes.data || []);
@@ -78,7 +86,7 @@ export default function Stats() {
       }
     };
     fetchBaseStats();
-  }, []);
+  }, [baseMonth]);
 
   // 3. 獨立載入：消費習慣 (當 weeklyRange 改變時觸發)
   useEffect(() => {
@@ -101,11 +109,13 @@ export default function Stats() {
 
   const CustomBarTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
+      const currentItem = payload.find((item) => item.dataKey === 'current');
+      const previousItem = payload.find((item) => item.dataKey === 'previous');
       return (
         <div className="bg-white p-3 border border-gray-100 shadow-lg rounded-lg text-sm">
           <p className="font-bold text-gray-800 mb-2">{label}</p>
-          <p className="text-indigo-600">本月: NT$ {payload[0]?.value.toLocaleString()}</p>
-          <p className="text-gray-400">上月: NT$ {payload[1]?.value.toLocaleString()}</p>
+          <p className="text-gray-400">上月: NT$ {previousItem?.value?.toLocaleString()}</p>
+          <p className="text-indigo-600">本月: NT$ {currentItem?.value?.toLocaleString()}</p>
         </div>
       );
     }
@@ -121,15 +131,30 @@ export default function Stats() {
   }
 
   return (
-    <div className="space-y-6 pb-20">
-      <h2 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
-        <PieIcon className="text-indigo-600" /> 支出分析
-      </h2>
+    <div className="space-y-6 pb-20 pt-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-2">
+          <PieIcon className="text-indigo-600" />
+          <h2 className="text-2xl font-bold text-gray-800 shrink-0">支出分析</h2>
+        </div>
+        <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg">
+          <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
+            <ChevronLeft size={18} className="text-gray-600" />
+          </button>
+          <span className="font-bold text-gray-700 w-20 text-center">{baseMonth}</span>
+          <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
+            <ChevronRight size={18} className="text-gray-600" />
+          </button>
+        </div>
+      </div>
 
       {/* Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-100 shadow-sm min-h-[350px] flex flex-col items-center justify-center">
-            <h3 className="text-base font-bold text-gray-700 mb-4 w-full text-left">本月支出占比</h3>
+            <div className="flex items-center gap-2 mb-6 w-full">
+                <PieIcon className="text-indigo-600" />
+                <h3 className="text-lg font-bold text-gray-800">支出占比</h3>
+            </div>
             {pieData.length > 0 ? (
                 <div className="w-full h-[250px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -144,7 +169,7 @@ export default function Stats() {
                         dataKey="amount"
                         nameKey="category"
                     >
-                        {pieData.map((entry, index) => (
+                        {pieData.map((_entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                     </Pie>
@@ -162,7 +187,10 @@ export default function Stats() {
         </div>
 
         <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-100 shadow-sm overflow-y-auto max-h-[400px]">
-          <h3 className="text-base font-bold text-gray-700 mb-4">支出明細 (點擊查看)</h3>
+          <div className="flex items-center gap-2 mb-6">
+            <List className="text-indigo-600" />
+            <h3 className="text-lg font-bold text-gray-800">支出明細</h3>
+          </div>
           <div className="space-y-3">
             {pieData.map((item, index) => {
               const percent = totalExpense > 0 
@@ -171,7 +199,7 @@ export default function Stats() {
               return (
                 <div 
                     key={item.category} 
-                    onClick={() => navigate(`/transactions?category=${item.category}`)}
+                    onClick={() => navigate(`/transactions?category=${encodeURIComponent(item.category)}&month=${baseMonth}`)}
                     className="flex items-center justify-between p-2 md:p-3 hover:bg-indigo-50 rounded-lg transition cursor-pointer group"
                 >
                   <div className="flex items-center gap-3">
@@ -201,9 +229,21 @@ export default function Stats() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-100 shadow-sm">
-            <div className="flex items-center gap-2 mb-6">
-                <BarChart3 className="text-indigo-600" />
-                <h3 className="text-lg font-bold text-gray-800">月度對比 (本月 vs 上月)</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+                <div className="flex items-center gap-2">
+                    <BarChart3 className="text-indigo-600" />
+                    <h3 className="text-lg font-bold text-gray-800">月度對比 (本月 vs 上月)</h3>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-sm bg-gray-200"></span>
+                        <span>上月</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-sm bg-indigo-500"></span>
+                        <span>本月</span>
+                    </div>
+                </div>
             </div>
             
             {barData.length > 0 ? (
@@ -218,9 +258,8 @@ export default function Stats() {
                             />
                             <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
                             <BarTooltip content={<CustomBarTooltip />} cursor={{fill: '#f9fafb'}} />
-                            <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                            <Bar dataKey="current" name="本月" fill="#6366f1" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="previous" name="上月" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="current" name="本月" fill="#6366f1" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -288,10 +327,6 @@ export default function Stats() {
 
       </div>
 
-      {/* Row 3: 預算達成率 (新增) */}
-      <div className="w-full">
-          <BudgetSection />
-      </div>
     </div>
   );
 }

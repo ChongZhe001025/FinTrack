@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, forwardRef } from 'react';
 import axios from 'axios';
-import { Loader2, AlertCircle, Edit2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Calendar, X, Clock, Check } from 'lucide-react';
+import { Loader2, AlertCircle, Edit2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Calendar, X, Clock, Check, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import AddTransactionModal from '../components/AddTransactionModal';
 import clsx from 'clsx';
@@ -63,6 +63,8 @@ export default function Transactions() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryFilter = searchParams.get('category') || '';
+  const monthParam = searchParams.get('month') || '';
+  const [currentMonth, setCurrentMonth] = useState(() => monthParam || new Date().toISOString().slice(0, 7));
 
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [startDate, endDate] = dateRange;
@@ -92,6 +94,30 @@ export default function Transactions() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    setCurrentMonth(monthParam || new Date().toISOString().slice(0, 7));
+  }, [monthParam]);
+
+  useEffect(() => {
+    if (!monthParam) return;
+
+    const start = new Date(`${monthParam}-01T00:00:00`);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+    end.setDate(0); // 當月最後一天
+
+    setDateRange([start, end]);
+  }, [monthParam]);
+
+  const changeMonth = (offset: number) => {
+      const date = new Date(currentMonth + "-01");
+      date.setMonth(date.getMonth() + offset);
+      const nextMonth = date.toISOString().slice(0, 7);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set('month', nextMonth);
+      setSearchParams(nextParams);
+  };
+
   const handleEditClick = (transaction: Transaction) => {
       setSelectedTransaction(transaction);
       setIsEditModalOpen(true);
@@ -99,11 +125,13 @@ export default function Transactions() {
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       const value = e.target.value;
+      const nextParams = new URLSearchParams(searchParams);
       if (value) {
-          setSearchParams({ category: value });
+          nextParams.set('category', value);
       } else {
-          setSearchParams({});
+          nextParams.delete('category');
       }
+      setSearchParams(nextParams);
   };
 
   // ✨ 處理快速選取邏輯
@@ -213,7 +241,21 @@ export default function Transactions() {
       )}
 
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-        <h2 className="text-2xl font-bold text-gray-800 shrink-0">交易紀錄</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2">
+            <List className="text-indigo-600" />
+            <h2 className="text-2xl font-bold text-gray-800 shrink-0">交易紀錄</h2>
+          </div>
+          <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg">
+            <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
+              <ChevronLeft size={18} className="text-gray-600" />
+            </button>
+            <span className="font-bold text-gray-700 w-20 text-center">{currentMonth}</span>
+            <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
+              <ChevronRight size={18} className="text-gray-600" />
+            </button>
+          </div>
+        </div>
         
         <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto relative z-20">
             

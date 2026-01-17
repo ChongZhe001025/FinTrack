@@ -206,9 +206,10 @@ func GetDashboardStats(c *gin.Context) {
 
 // GetCategoryStats godoc
 // @Summary      取得類別統計
-// @Description  計算各分類的支出總額 (用於圓餅圖)
+// @Description  計算指定月份各分類的支出總額 (用於圓餅圖)
 // @Tags         Stats
 // @Produce      json
+// @Param        month query string false "月份 (YYYY-MM)"
 // @Success      200  {array}  map[string]interface{}
 // @Router       /stats/category [get]
 func GetCategoryStats(c *gin.Context) {
@@ -216,6 +217,25 @@ func GetCategoryStats(c *gin.Context) {
 	collection := config.GetCollection("transactions")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	monthParam := c.Query("month")
+	now := time.Now()
+	location := now.Location()
+	var targetMonth time.Time
+
+	if monthParam == "" {
+		targetMonth = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, location)
+	} else {
+		parsedMonth, err := time.ParseInLocation("2006-01", monthParam, location)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "month 格式錯誤，請使用 YYYY-MM"})
+			return
+		}
+		targetMonth = time.Date(parsedMonth.Year(), parsedMonth.Month(), 1, 0, 0, 0, 0, location)
+	}
+
+	monthStart := targetMonth
+	monthEnd := monthStart.AddDate(0, 1, 0)
 
 	// Aggregation Pipeline:
 	// 1. $match: 只篩選 "expense" (支出)
@@ -225,6 +245,10 @@ func GetCategoryStats(c *gin.Context) {
 		{{Key: "$match", Value: bson.D{
 			{Key: "owner", Value: currentUser},
 			{Key: "type", Value: "expense"},
+			{Key: "date", Value: bson.D{
+				{Key: "$gte", Value: monthStart.Format("2006-01-02")},
+				{Key: "$lt", Value: monthEnd.Format("2006-01-02")},
+			}},
 		}}},
 		{{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: "$category"},
@@ -342,9 +366,10 @@ func DeleteTransaction(c *gin.Context) {
 
 // GetMonthlyComparison godoc
 // @Summary      取得月度對比
-// @Description  比較本月與上個月的各類別支出
+// @Description  比較指定月份與上個月的各類別支出
 // @Tags         Stats
 // @Produce      json
+// @Param        month query string false "月份 (YYYY-MM)"
 // @Success      200  {array}  map[string]interface{}
 // @Router       /stats/comparison [get]
 func GetMonthlyComparison(c *gin.Context) {
@@ -354,11 +379,24 @@ func GetMonthlyComparison(c *gin.Context) {
 	defer cancel()
 
 	// 1. 計算時間範圍
+	monthParam := c.Query("month")
 	now := time.Now()
-	currentYear, currentMonth, _ := now.Date()
+	location := now.Location()
+	var targetMonth time.Time
+
+	if monthParam == "" {
+		targetMonth = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, location)
+	} else {
+		parsedMonth, err := time.ParseInLocation("2006-01", monthParam, location)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "month 格式錯誤，請使用 YYYY-MM"})
+			return
+		}
+		targetMonth = time.Date(parsedMonth.Year(), parsedMonth.Month(), 1, 0, 0, 0, 0, location)
+	}
 
 	// 本月起訖
-	thisMonthStart := time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, now.Location())
+	thisMonthStart := targetMonth
 	thisMonthEnd := thisMonthStart.AddDate(0, 1, 0) // 下個月1號即為本月結束點
 
 	// 上月起訖
