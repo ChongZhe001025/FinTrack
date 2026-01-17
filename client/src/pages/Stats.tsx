@@ -4,15 +4,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as PieTooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as BarTooltip
 } from 'recharts';
-import {
-  Loader2,
-  PieChart as PieIcon,
-  ChevronLeft,
-  ChevronRight,
-  BarChart3,
-  CalendarDays,
-  List,
-} from 'lucide-react';
+import { Loader2, PieChart as PieIcon, ChevronLeft, ChevronRight, BarChart3, CalendarDays, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface CategoryStat {
@@ -155,7 +147,7 @@ export default function Stats() {
     <div className="space-y-6 pb-20 pt-4">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2">
-          <BarChart3 className="text-indigo-600" />
+          <PieIcon className="text-indigo-600" />
           <h2 className="text-2xl font-bold text-gray-800 shrink-0">每月報表</h2>
         </div>
         <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg">
