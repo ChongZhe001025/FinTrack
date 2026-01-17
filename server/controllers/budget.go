@@ -111,38 +111,12 @@ func GetBudgetStatus(c *gin.Context) {
 		pipeline := mongo.Pipeline{
 			{{Key: "$match", Value: bson.D{
 				{Key: "owner", Value: currentUser},
+				{Key: "type", Value: "expense"},
 				{Key: "category", Value: b.Category},
 				{Key: "date", Value: bson.D{
 					{Key: "$gte", Value: startStr},
 					{Key: "$lt", Value: endStr},
 				}},
-			}}},
-			{{Key: "$lookup", Value: bson.D{
-				{Key: "from", Value: "categories"},
-				{Key: "let", Value: bson.D{
-					{Key: "catId", Value: "$category_id"},
-					{Key: "catName", Value: "$category"},
-					{Key: "owner", Value: "$owner"},
-				}},
-				{Key: "pipeline", Value: bson.A{
-					bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
-						bson.M{"$eq": bson.A{"$owner", "$$owner"}},
-						bson.M{"$or": bson.A{
-							bson.M{"$eq": bson.A{"$_id", "$$catId"}},
-							bson.M{"$eq": bson.A{"$name", "$$catName"}},
-						}},
-					}}}},
-					bson.M{"$project": bson.M{"_id": 0, "type": 1}},
-					bson.M{"$limit": 1},
-				}},
-				{Key: "as", Value: "categoryDoc"},
-			}}},
-			{{Key: "$unwind", Value: bson.D{
-				{Key: "path", Value: "$categoryDoc"},
-				{Key: "preserveNullAndEmptyArrays", Value: false},
-			}}},
-			{{Key: "$match", Value: bson.D{
-				{Key: "categoryDoc.type", Value: "expense"},
 			}}},
 			{{Key: "$group", Value: bson.D{
 				{Key: "_id", Value: nil},

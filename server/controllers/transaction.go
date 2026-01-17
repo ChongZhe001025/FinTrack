@@ -1,9 +1,7 @@
-// controllers/transaction.go
 package controllers
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"server/config"
 	"server/models"
@@ -13,122 +11,62 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/options" // 新增: 用於設定查詢選項 (排序)
 )
 
-var (
-	errCategoryRequired  = errors.New("category required")
-	errCategoryNotFound  = errors.New("category not found")
-	errInvalidCategoryID = errors.New("invalid category id")
-)
-
-type transactionInput struct {
-	Amount     float64 `json:"amount" binding:"required"`
-	Category   string  `json:"category"`
-	CategoryID string  `json:"category_id"`
-	Date       string  `json:"date" binding:"required"`
-	Note       string  `json:"note"`
-}
-
-func resolveCategoryType(category models.Category) string {
-	if category.Type == "income" || category.Type == "expense" {
-		return category.Type
-	}
-	return "expense"
-}
-
-// prefer category_id, fallback to name
-func resolveCategory(ctx context.Context, owner string, categoryID string, categoryName string) (models.Category, error) {
-	collection := config.GetCollection("categories")
-
-	if categoryID != "" {
-		objID, err := primitive.ObjectIDFromHex(categoryID)
-		if err != nil {
-			return models.Category{}, errInvalidCategoryID
-		}
-		var category models.Category
-		if err := collection.FindOne(ctx, bson.M{"_id": objID, "owner": owner}).Decode(&category); err != nil {
-			if err == mongo.ErrNoDocuments {
-				return models.Category{}, errCategoryNotFound
-			}
-			return models.Category{}, err
-		}
-		return category, nil
-	}
-
-	if categoryName == "" {
-		return models.Category{}, errCategoryRequired
-	}
-
-	var category models.Category
-	if err := collection.FindOne(ctx, bson.M{"name": categoryName, "owner": owner}).Decode(&category); err != nil {
-		if err == mongo.ErrNoDocuments {
-			return models.Category{}, errCategoryNotFound
-		}
-		return models.Category{}, err
-	}
-	return category, nil
-}
-
-// CreateTransaction
+// CreateTransaction godoc
+// @Summary      新增記帳
+// @Description  建立一筆新的收入或支出紀錄
+// @Tags         Transactions
+// @Accept       json
+// @Produce      json
+// @Param        transaction body models.Transaction true "記帳資料"
+// @Success      200  {object}  models.Transaction
+// @Router       /transactions [post]
 func CreateTransaction(c *gin.Context) {
 	currentUser := c.MustGet("currentUser").(string)
-	var input transactionInput
+	var input models.Transaction
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	input.Owner = currentUser
+	input.ID = primitive.NewObjectID()
+	input.CreatedAt = time.Now()
+	input.UpdatedAt = time.Now()
+
 	collection := config.GetCollection("transactions")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	category, err := resolveCategory(ctx, currentUser, input.CategoryID, input.Category)
+	_, err := collection.InsertOne(ctx, input)
 	if err != nil {
-		switch err {
-		case errCategoryRequired, errInvalidCategoryID:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "請提供有效的類別"})
-		case errCategoryNotFound:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "找不到指定類別"})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "無法取得類別"})
-		}
-		return
-	}
-
-	now := time.Now()
-	transaction := models.Transaction{
-		ID:         primitive.NewObjectID(),
-		Type:       resolveCategoryType(category),
-		Amount:     input.Amount,
-		Category:   category.Name,
-		CategoryID: category.ID,
-		Date:       input.Date,
-		Note:       input.Note,
-		Owner:      currentUser,
-		CreatedAt:  now,
-		UpdatedAt:  now,
-	}
-
-	if _, err := collection.InsertOne(ctx, transaction); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "無法寫入資料庫"})
 		return
 	}
 
-	c.JSON(http.StatusOK, transaction)
+	c.JSON(http.StatusOK, input)
 }
 
-// GetTransactions (date desc)
+// GetTransactions godoc
+// @Summary      取得列表
+// @Description  取得所有記帳紀錄 (依日期由新到舊排序)
+// @Tags         Transactions
+// @Produce      json
+// @Success      200  {array}  models.Transaction
+// @Router       /transactions [get]
 func GetTransactions(c *gin.Context) {
 	currentUser := c.MustGet("currentUser").(string)
 	collection := config.GetCollection("transactions")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// 修改重點：加入排序選項，依照 "date" 欄位倒序 (-1) 排列
 	opts := options.Find().SetSort(bson.D{{Key: "date", Value: -1}})
-	filter := bson.M{"owner": currentUser}
 
+	filter := bson.M{"owner": currentUser}
 	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "無法讀取資料"})
@@ -142,55 +80,266 @@ func GetTransactions(c *gin.Context) {
 		return
 	}
 
+	// 如果沒有資料，回傳空陣列而不是 null
 	if transactions == nil {
 		transactions = []models.Transaction{}
 	}
+
 	c.JSON(http.StatusOK, transactions)
 }
 
-// UpdateTransaction (type derived from category)
+// GetDashboardStats godoc
+// @Summary      取得統計數據
+// @Description  計算指定月份的總收入、總支出、結餘與上月環比
+// @Tags         Stats
+// @Produce      json
+// @Param        month query string false "月份 (YYYY-MM)"
+// @Success      200  {object}  map[string]interface{}
+// @Router       /stats [get]
+func GetDashboardStats(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
+	collection := config.GetCollection("transactions")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	monthParam := c.Query("month")
+	now := time.Now()
+	location := now.Location()
+	var targetMonth time.Time
+
+	if monthParam == "" {
+		targetMonth = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, location)
+	} else {
+		parsedMonth, err := time.ParseInLocation("2006-01", monthParam, location)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "month 格式錯誤，請使用 YYYY-MM"})
+			return
+		}
+		targetMonth = time.Date(parsedMonth.Year(), parsedMonth.Month(), 1, 0, 0, 0, 0, location)
+	}
+
+	thisMonthStart := targetMonth
+	thisMonthEnd := thisMonthStart.AddDate(0, 1, 0)
+	lastMonthStart := thisMonthStart.AddDate(0, -1, 0)
+	lastMonthEnd := thisMonthStart
+
+	getTotals := func(start, end time.Time) (map[string]float64, error) {
+		pipeline := mongo.Pipeline{
+			{{Key: "$match", Value: bson.D{
+				{Key: "owner", Value: currentUser},
+				{Key: "date", Value: bson.D{
+					{Key: "$gte", Value: start.Format("2006-01-02")},
+					{Key: "$lt", Value: end.Format("2006-01-02")},
+				}},
+			}}},
+			{{Key: "$group", Value: bson.D{
+				{Key: "_id", Value: "$type"},                                   // 依照 type 分組 (income/expense)
+				{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}}, // 加總 amount
+			}}},
+		}
+
+		cursor, err := collection.Aggregate(ctx, pipeline)
+		if err != nil {
+			return nil, err
+		}
+		defer cursor.Close(ctx)
+
+		var results []bson.M
+		if err = cursor.All(ctx, &results); err != nil {
+			return nil, err
+		}
+
+		totals := map[string]float64{
+			"income":  0,
+			"expense": 0,
+		}
+
+		for _, result := range results {
+			typeStr := result["_id"].(string)
+			total := result["total"].(float64) // 注意：MongoDB 數字型別轉換
+			if typeStr == "income" {
+				totals["income"] = total
+			} else if typeStr == "expense" {
+				totals["expense"] = total
+			}
+		}
+
+		return totals, nil
+	}
+
+	thisTotals, err := getTotals(thisMonthStart, thisMonthEnd)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "統計計算失敗"})
+		return
+	}
+
+	lastTotals, err := getTotals(lastMonthStart, lastMonthEnd)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "計算上月資料失敗"})
+		return
+	}
+
+	calcTrend := func(current, previous float64) float64 {
+		if previous == 0 {
+			return 0
+		}
+		return (current - previous) / previous * 100
+	}
+
+	totalIncome := thisTotals["income"]
+	totalExpense := thisTotals["expense"]
+	balance := totalIncome - totalExpense
+	lastBalance := lastTotals["income"] - lastTotals["expense"]
+
+	stats := gin.H{
+		"total_income":  totalIncome,
+		"total_expense": totalExpense,
+		"balance":       balance,
+		"income_trend":  calcTrend(totalIncome, lastTotals["income"]),
+		"expense_trend": calcTrend(totalExpense, lastTotals["expense"]),
+		"balance_trend": calcTrend(balance, lastBalance),
+		"month":         thisMonthStart.Format("2006-01"),
+	}
+
+	c.JSON(http.StatusOK, stats)
+}
+
+// GetCategoryStats godoc
+// @Summary      取得類別統計
+// @Description  計算指定月份各分類的支出總額 (用於圓餅圖)
+// @Tags         Stats
+// @Produce      json
+// @Param        month query string false "月份 (YYYY-MM)"
+// @Success      200  {array}  map[string]interface{}
+// @Router       /stats/category [get]
+func GetCategoryStats(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
+	collection := config.GetCollection("transactions")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	monthParam := c.Query("month")
+	now := time.Now()
+	location := now.Location()
+	var targetMonth time.Time
+
+	if monthParam == "" {
+		targetMonth = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, location)
+	} else {
+		parsedMonth, err := time.ParseInLocation("2006-01", monthParam, location)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "month 格式錯誤，請使用 YYYY-MM"})
+			return
+		}
+		targetMonth = time.Date(parsedMonth.Year(), parsedMonth.Month(), 1, 0, 0, 0, 0, location)
+	}
+
+	monthStart := targetMonth
+	monthEnd := monthStart.AddDate(0, 1, 0)
+
+	// Aggregation Pipeline:
+	// 1. $match: 只篩選 "expense" (支出)
+	// 2. $group: 依照 "category" 分組，並加總 "amount"
+	// 3. $sort: 依照總金額由大到小排序
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: bson.D{
+			{Key: "owner", Value: currentUser},
+			{Key: "type", Value: "expense"},
+			{Key: "date", Value: bson.D{
+				{Key: "$gte", Value: monthStart.Format("2006-01-02")},
+				{Key: "$lt", Value: monthEnd.Format("2006-01-02")},
+			}},
+		}}},
+		{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "categories"},
+			{Key: "let", Value: bson.D{
+				{Key: "catName", Value: "$category"},
+				{Key: "owner", Value: "$owner"},
+			}},
+			{Key: "pipeline", Value: bson.A{
+				bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
+					bson.M{"$eq": bson.A{"$name", "$$catName"}},
+					bson.M{"$eq": bson.A{"$owner", "$$owner"}},
+				}}}},
+				bson.M{"$project": bson.M{"_id": 1, "type": 1}},
+				bson.M{"$limit": 1},
+			}},
+			{Key: "as", Value: "categoryDoc"},
+		}}},
+		{{Key: "$unwind", Value: bson.D{
+			{Key: "path", Value: "$categoryDoc"},
+			{Key: "preserveNullAndEmptyArrays", Value: true},
+		}}},
+		{{Key: "$match", Value: bson.D{
+			{Key: "categoryDoc.type", Value: bson.D{{Key: "$ne", Value: "income"}}},
+		}}},
+		{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "$category"},
+			{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}},
+		}}},
+		{{Key: "$sort", Value: bson.D{{Key: "total", Value: -1}}}}, // 金額大的排前面
+	}
+
+	cursor, err := collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "統計計算失敗"})
+		return
+	}
+	defer cursor.Close(ctx)
+
+	var results []bson.M
+	if err = cursor.All(ctx, &results); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "解析統計失敗"})
+		return
+	}
+
+	// 整理回傳格式
+	// 目標格式: [{"category": "Food", "amount": 500}, ...]
+	var stats []gin.H
+	for _, result := range results {
+		stats = append(stats, gin.H{
+			"category": result["_id"],
+			"amount":   result["total"],
+		})
+	}
+
+	c.JSON(http.StatusOK, stats)
+}
+
+// ... (保留原本的 create 和 get)
+
+// UpdateTransaction 修改交易
 func UpdateTransaction(c *gin.Context) {
 	currentUser := c.MustGet("currentUser").(string)
-	objID, err := primitive.ObjectIDFromHex(c.Param("id"))
+	idParam := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "無效的 ID"})
 		return
 	}
 
-	var input transactionInput
+	var input models.Transaction
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	// 更新時間
+	input.UpdatedAt = time.Now()
+
 	collection := config.GetCollection("transactions")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	category, err := resolveCategory(ctx, currentUser, input.CategoryID, input.Category)
-	if err != nil {
-		switch err {
-		case errCategoryRequired, errInvalidCategoryID:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "請提供有效的類別"})
-		case errCategoryNotFound:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "找不到指定類別"})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "無法取得類別"})
-		}
-		return
-	}
-
-	updatedAt := time.Now()
 	update := bson.M{
 		"$set": bson.M{
-			"type":        resolveCategoryType(category),
-			"amount":      input.Amount,
-			"category":    category.Name,
-			"category_id": category.ID,
-			"date":        input.Date,
-			"note":        input.Note,
-			"owner":       currentUser,
-			"updated_at":  updatedAt,
+			"type":       input.Type,
+			"amount":     input.Amount,
+			"category":   input.Category,
+			"date":       input.Date,
+			"note":       input.Note,
+			"owner":      currentUser,
+			"updated_at": input.UpdatedAt,
 		},
 	}
 
@@ -200,6 +349,7 @@ func UpdateTransaction(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新失敗"})
 		return
 	}
+
 	if result.MatchedCount == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "找不到該筆資料"})
 		return
@@ -208,10 +358,11 @@ func UpdateTransaction(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "更新成功"})
 }
 
-// DeleteTransaction
+// DeleteTransaction 刪除交易
 func DeleteTransaction(c *gin.Context) {
 	currentUser := c.MustGet("currentUser").(string)
-	objID, err := primitive.ObjectIDFromHex(c.Param("id"))
+	idParam := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "無效的 ID"})
 		return
@@ -227,10 +378,143 @@ func DeleteTransaction(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "刪除失敗"})
 		return
 	}
+
 	if result.DeletedCount == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "找不到該筆資料"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "刪除成功"})
+}
+
+// GetMonthlyComparison godoc
+// @Summary      取得月度對比
+// @Description  比較指定月份與上個月的各類別支出
+// @Tags         Stats
+// @Produce      json
+// @Param        month query string false "月份 (YYYY-MM)"
+// @Success      200  {array}  map[string]interface{}
+// @Router       /stats/comparison [get]
+func GetMonthlyComparison(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
+	collection := config.GetCollection("transactions")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 1. 計算時間範圍
+	monthParam := c.Query("month")
+	now := time.Now()
+	location := now.Location()
+	var targetMonth time.Time
+
+	if monthParam == "" {
+		targetMonth = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, location)
+	} else {
+		parsedMonth, err := time.ParseInLocation("2006-01", monthParam, location)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "month 格式錯誤，請使用 YYYY-MM"})
+			return
+		}
+		targetMonth = time.Date(parsedMonth.Year(), parsedMonth.Month(), 1, 0, 0, 0, 0, location)
+	}
+
+	// 本月起訖
+	thisMonthStart := targetMonth
+	thisMonthEnd := thisMonthStart.AddDate(0, 1, 0) // 下個月1號即為本月結束點
+
+	// 上月起訖
+	lastMonthStart := thisMonthStart.AddDate(0, -1, 0)
+	lastMonthEnd := thisMonthStart
+
+	// 2. 定義 Aggregation 函式 (重用邏輯)
+		getStats := func(start, end time.Time) (map[string]float64, error) {
+			pipeline := mongo.Pipeline{
+				{{Key: "$match", Value: bson.D{
+					{Key: "owner", Value: currentUser},
+					{Key: "type", Value: "expense"}, // 只看支出
+					{Key: "date", Value: bson.D{
+						{Key: "$gte", Value: start.Format("2006-01-02")},
+						{Key: "$lt", Value: end.Format("2006-01-02")},
+					}},
+				}}},
+				{{Key: "$lookup", Value: bson.D{
+					{Key: "from", Value: "categories"},
+					{Key: "let", Value: bson.D{
+						{Key: "catName", Value: "$category"},
+						{Key: "owner", Value: "$owner"},
+					}},
+					{Key: "pipeline", Value: bson.A{
+						bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
+							bson.M{"$eq": bson.A{"$name", "$$catName"}},
+							bson.M{"$eq": bson.A{"$owner", "$$owner"}},
+						}}}},
+						bson.M{"$project": bson.M{"_id": 1, "type": 1}},
+						bson.M{"$limit": 1},
+					}},
+					{Key: "as", Value: "categoryDoc"},
+				}}},
+				{{Key: "$unwind", Value: bson.D{
+					{Key: "path", Value: "$categoryDoc"},
+					{Key: "preserveNullAndEmptyArrays", Value: true},
+				}}},
+				{{Key: "$match", Value: bson.D{
+					{Key: "categoryDoc.type", Value: bson.D{{Key: "$ne", Value: "income"}}},
+				}}},
+				{{Key: "$group", Value: bson.D{
+					{Key: "_id", Value: "$category"},
+					{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}},
+				}}},
+		}
+
+		cursor, err := collection.Aggregate(ctx, pipeline)
+		if err != nil {
+			return nil, err
+		}
+		defer cursor.Close(ctx)
+
+		var results []bson.M
+		if err = cursor.All(ctx, &results); err != nil {
+			return nil, err
+		}
+
+		stats := make(map[string]float64)
+		for _, r := range results {
+			stats[r["_id"].(string)] = r["total"].(float64)
+		}
+		return stats, nil
+	}
+
+	// 3. 分別撈取資料
+	thisMonthStats, err := getStats(thisMonthStart, thisMonthEnd)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "計算本月資料失敗"})
+		return
+	}
+
+	lastMonthStats, err := getStats(lastMonthStart, lastMonthEnd)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "計算上月資料失敗"})
+		return
+	}
+
+	// 4. 合併資料 (Merge)
+	// 找出所有出現過的類別
+	categories := make(map[string]bool)
+	for k := range thisMonthStats {
+		categories[k] = true
+	}
+	for k := range lastMonthStats {
+		categories[k] = true
+	}
+
+	var response []gin.H
+	for cat := range categories {
+		response = append(response, gin.H{
+			"category": cat,
+			"current":  thisMonthStats[cat], // 若無 key 會回傳 0 (float64 預設值)
+			"previous": lastMonthStats[cat],
+		})
+	}
+
+	c.JSON(http.StatusOK, response)
 }

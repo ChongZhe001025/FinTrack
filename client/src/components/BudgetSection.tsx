@@ -31,7 +31,6 @@ export default function BudgetSection({ month }: BudgetSectionProps) {
   // Modal 狀態
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form States
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -70,12 +69,10 @@ export default function BudgetSection({ month }: BudgetSectionProps) {
 
       if (budget) {
           setEditMode(true);
-          setEditingId(budget.id);
           setSelectedCategory(budget.category);
           setAmount(budget.limit.toString());
       } else {
           setEditMode(false);
-          setEditingId(null);
           // 預設選取第一個類別
           if(categories.length > 0) setSelectedCategory(categories[0].name);
           setAmount('');

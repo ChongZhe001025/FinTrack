@@ -15,9 +15,9 @@ import (
 
 type YearlyReportResponse struct {
 	Year       int                `json:"year"`
-	Summary    YearlySummary      `json:"summary"`
-	Monthly    []YearlyMonthly    `json:"monthly"`
-	ByCategory []YearlyByCategory `json:"byCategory"`
+	Summary    YearlySummary       `json:"summary"`
+	Monthly    []YearlyMonthly     `json:"monthly"`
+	ByCategory []YearlyByCategory  `json:"byCategory"`
 }
 
 type YearlySummary struct {
@@ -61,7 +61,7 @@ type YearlyByCategory struct {
 func GetYearlyReport(c *gin.Context) {
 	currentUser := c.MustGet("currentUser").(string)
 	collection := config.GetCollection("transactions")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	yearParam := c.Query("year")
@@ -69,58 +69,44 @@ func GetYearlyReport(c *gin.Context) {
 	if yearParam != "" {
 		parsedYear, err := strconv.Atoi(yearParam)
 		if err != nil || parsedYear <= 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid year, use YYYY"})
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid year, use YYYY",
+			})
 			return
 		}
 		year = parsedYear
 	}
 
-	// ✅ 建議固定 +08:00，避免 docker/server 時區不是台灣導致跨日/月錯位
-	timezone := "+08:00"
-	start := time.Date(year, 1, 1, 0, 0, 0, 0, time.FixedZone("UTC+8", 8*3600))
+	start := time.Date(year, 1, 1, 0, 0, 0, 0, time.Local)
 	end := start.AddDate(1, 0, 0)
+	timezone := start.Format("-07:00")
 
 	pipeline := mongo.Pipeline{
-		{{Key: "$match", Value: bson.M{"owner": currentUser}}},
-		{{Key: "$lookup", Value: bson.M{
-			"from": "categories",
-			"let": bson.M{
-				"catId":   "$category_id",
-				"catName": "$category",
-				"owner":   "$owner",
-			},
-			"pipeline": bson.A{
-				bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
-					bson.M{"$eq": bson.A{"$owner", "$$owner"}},
-					bson.M{"$or": bson.A{
-						bson.M{"$eq": bson.A{"$_id", "$$catId"}},
-						bson.M{"$eq": bson.A{"$name", "$$catName"}},
-					}},
-				}}}},
-				bson.M{"$project": bson.M{"_id": 1, "name": 1, "type": 1}},
-				bson.M{"$limit": 1},
-			},
-			"as": "categoryDoc",
+		{{Key: "$match", Value: bson.M{
+			"owner": currentUser,
+			"type":  bson.M{"$in": bson.A{"expense", "income"}},
 		}}},
-		{{Key: "$unwind", Value: bson.M{"path": "$categoryDoc", "preserveNullAndEmptyArrays": false}}},
-		{{Key: "$match", Value: bson.M{"categoryDoc.type": bson.M{"$in": bson.A{"expense", "income"}}}}},
-
-		// ✅ 你的 schema 是 date: "YYYY-MM-DD"，直接 parse
 		{{Key: "$addFields", Value: bson.M{
-			"dateParsed": bson.M{"$dateFromString": bson.M{
-				"dateString": "$date",
-				"format":     "%Y-%m-%d",
-				"timezone":   timezone,
-			}},
+			"dateParsed": bson.M{
+				"$ifNull": bson.A{
+					"$dateAt",
+					bson.M{"$dateFromString": bson.M{
+						"dateString": "$date",
+						"format":     "%Y-%m-%d",
+						"timezone":   timezone,
+					}},
+				},
+			},
 		}}},
-		{{Key: "$match", Value: bson.M{"dateParsed": bson.M{"$gte": start, "$lt": end}}}},
-
+		{{Key: "$match", Value: bson.M{
+			"dateParsed": bson.M{"$gte": start, "$lt": end},
+		}}},
 		{{Key: "$facet", Value: bson.M{
 			"monthly": bson.A{
 				bson.M{"$group": bson.M{
 					"_id": bson.M{
 						"m": bson.M{"$month": bson.M{"date": "$dateParsed", "timezone": timezone}},
-						"t": "$categoryDoc.type",
+						"t": "$type",
 					},
 					"amount": bson.M{"$sum": "$amount"},
 				}},
@@ -145,10 +131,9 @@ func GetYearlyReport(c *gin.Context) {
 				}},
 				bson.M{"$sort": bson.M{"month": 1}},
 			},
-
 			"summary": bson.A{
 				bson.M{"$group": bson.M{
-					"_id":   "$categoryDoc.type",
+					"_id":   "$type",
 					"total": bson.M{"$sum": "$amount"},
 				}},
 				bson.M{"$group": bson.M{
@@ -160,21 +145,39 @@ func GetYearlyReport(c *gin.Context) {
 						bson.M{"$eq": bson.A{"$_id", "income"}}, "$total", 0,
 					}}},
 				}},
-				bson.M{"$project": bson.M{"_id": 0, "totalExpense": 1, "totalIncome": 1}},
+				bson.M{"$project": bson.M{
+					"_id":          0,
+					"totalExpense": 1,
+					"totalIncome":  1,
+				}},
 			},
-
 			"byCategory": bson.A{
-				bson.M{"$match": bson.M{"categoryDoc.type": "expense"}},
+				bson.M{"$match": bson.M{"type": "expense"}},
 				bson.M{"$group": bson.M{
-					"_id":          "$categoryDoc._id",
-					"categoryName": bson.M{"$first": "$categoryDoc.name"},
-					"total":        bson.M{"$sum": "$amount"},
-					"count":        bson.M{"$sum": 1},
+					"_id":   "$category",
+					"total": bson.M{"$sum": "$amount"},
+					"count": bson.M{"$sum": 1},
+				}},
+				bson.M{"$lookup": bson.M{
+					"from": "categories",
+					"let":  bson.M{"catId": "$_id"},
+					"pipeline": bson.A{
+						bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
+							bson.M{"$eq": bson.A{"$_id", "$$catId"}},
+							bson.M{"$eq": bson.A{"$owner", currentUser}},
+						}}}},
+						bson.M{"$project": bson.M{"_id": 1, "name": 1}},
+					},
+					"as": "categoryDoc",
+				}},
+				bson.M{"$unwind": bson.M{
+					"path":                       "$categoryDoc",
+					"preserveNullAndEmptyArrays": true,
 				}},
 				bson.M{"$project": bson.M{
 					"_id":          0,
-					"categoryId":   "$_id",
-					"categoryName": 1,
+					"categoryId":   bson.M{"$ifNull": bson.A{"$categoryDoc._id", "$_id"}},
+					"categoryName": bson.M{"$ifNull": bson.A{"$categoryDoc.name", "$_id"}},
 					"total":        1,
 					"count":        1,
 				}},
@@ -185,14 +188,18 @@ func GetYearlyReport(c *gin.Context) {
 
 	cursor, err := collection.Aggregate(ctx, pipeline)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to compute report"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to compute report",
+		})
 		return
 	}
 	defer cursor.Close(ctx)
 
 	var facets []bson.M
 	if err = cursor.All(ctx, &facets); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse report"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to parse report",
+		})
 		return
 	}
 
@@ -268,12 +275,14 @@ func GetYearlyReport(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, YearlyReportResponse{
+	response := YearlyReportResponse{
 		Year:       year,
 		Summary:    summary,
 		Monthly:    monthly,
 		ByCategory: byCategory,
-	})
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func toBsonMArray(value interface{}) []bson.M {
