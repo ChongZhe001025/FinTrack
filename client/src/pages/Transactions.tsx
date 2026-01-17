@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, forwardRef } from 'react';
+import { useEffect, useState, useMemo, useCallback, forwardRef } from 'react';
 import axios from 'axios';
 import { Loader2, AlertCircle, Edit2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Calendar, X, Clock, Check, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
@@ -16,9 +16,8 @@ registerLocale('zh-TW', zhTW);
 
 interface Transaction {
   id: string;
-  type: 'income' | 'expense';
   amount: number;
-  category: string;
+  category_id: string;
   date: string;
   note: string;
 }
@@ -26,6 +25,8 @@ interface Transaction {
 interface Category {
   id: string;
   name: string;
+  type: 'income' | 'expense';
+  order?: number;
 }
 
 type SortKey = 'date' | 'category' | 'amount';
@@ -62,7 +63,8 @@ export default function Transactions() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | undefined>(undefined);
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const categoryFilter = searchParams.get('category') || '';
+  const categoryFilter = searchParams.get('category_id') || '';
+  const legacyCategoryFilter = searchParams.get('category') || '';
   const monthParam = searchParams.get('month') || '';
   const [currentMonth, setCurrentMonth] = useState(() => monthParam || new Date().toISOString().slice(0, 7));
   const maxMonthStart = new Date();
@@ -86,7 +88,12 @@ export default function Transactions() {
             axios.get('/api/v1/categories')
         ]);
         setTransactions(transRes.data || []);
-        setCategories(catRes.data || []);
+        const categoryData = (catRes.data || []).slice().sort((a: Category, b: Category) => {
+          const orderDiff = (a.order ?? 0) - (b.order ?? 0);
+          if (orderDiff !== 0) return orderDiff;
+          return a.name.localeCompare(b.name, 'zh-Hant');
+        });
+        setCategories(categoryData);
         setError('');
       } catch (err) {
         console.error('API 錯誤:', err);
@@ -112,6 +119,32 @@ export default function Transactions() {
 
     setDateRange([start, end]);
   }, [monthParam]);
+
+  const categoriesById = useMemo(() => {
+    const map = new Map<string, Category>();
+    categories.forEach((category) => {
+      map.set(category.id, category);
+    });
+    return map;
+  }, [categories]);
+
+  const getCategoryName = useCallback(
+    (categoryId: string) => categoriesById.get(categoryId)?.name || '未分類',
+    [categoriesById]
+  );
+
+  const getCategoryType = useCallback(
+    (categoryId: string) => categoriesById.get(categoryId)?.type || 'expense',
+    [categoriesById]
+  );
+
+  const legacyCategoryId = useMemo(() => {
+    if (!legacyCategoryFilter) return '';
+    const match = categories.find((category) => category.name === legacyCategoryFilter);
+    return match?.id || '';
+  }, [categories, legacyCategoryFilter]);
+
+  const activeCategoryFilter = categoryFilter || legacyCategoryId;
 
   const changeMonth = (offset: number) => {
       const date = new Date(currentMonth + "-01");
@@ -141,10 +174,11 @@ export default function Transactions() {
       const value = e.target.value;
       const nextParams = new URLSearchParams(searchParams);
       if (value) {
-          nextParams.set('category', value);
+          nextParams.set('category_id', value);
       } else {
-          nextParams.delete('category');
+          nextParams.delete('category_id');
       }
+      nextParams.delete('category');
       setSearchParams(nextParams);
   };
 
@@ -166,8 +200,8 @@ export default function Transactions() {
   const processedTransactions = useMemo(() => {
       let data = [...transactions];
       
-      if (categoryFilter) {
-          data = data.filter(t => t.category === categoryFilter);
+      if (activeCategoryFilter) {
+          data = data.filter(t => t.category_id === activeCategoryFilter);
       }
 
       if (startDate) {
@@ -191,7 +225,7 @@ export default function Transactions() {
                   comparison = a.amount - b.amount;
                   break;
               case 'category':
-                  comparison = a.category.localeCompare(b.category, 'zh-Hant');
+                  comparison = getCategoryName(a.category_id).localeCompare(getCategoryName(b.category_id), 'zh-Hant');
                   break;
           }
 
@@ -199,7 +233,7 @@ export default function Transactions() {
       });
 
       return data;
-  }, [transactions, categoryFilter, startDate, endDate, sortConfig]);
+  }, [transactions, activeCategoryFilter, startDate, endDate, sortConfig, getCategoryName]);
 
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
       if (sortConfig.key !== columnKey) return <ArrowUpDown size={14} className="text-gray-300 ml-1" />;
@@ -343,12 +377,12 @@ export default function Transactions() {
                     <Filter size={16} />
                 </div>
                 <select
-                    value={categoryFilter}
+                    value={activeCategoryFilter}
                     onChange={handleFilterChange}
                     className={clsx(
                         "w-full pl-10 pr-10 py-2.5 bg-white border rounded-lg appearance-none text-sm font-medium transition-all cursor-pointer shadow-sm",
                         "focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400",
-                        categoryFilter 
+                        activeCategoryFilter 
                             ? "border-indigo-200 text-indigo-700 bg-indigo-50/50" 
                             : "border-gray-200 text-gray-600 hover:border-gray-300"
                     )}
@@ -356,7 +390,7 @@ export default function Transactions() {
                     <option value="">所有類別</option>
                     <option disabled>──────────</option>
                     {categories.map(c => (
-                        <option key={c.id} value={c.name}>
+                        <option key={c.id} value={c.id}>
                             {c.name}
                         </option>
                     ))}
@@ -384,7 +418,7 @@ export default function Transactions() {
           <div className="p-12 text-center text-gray-400 flex flex-col items-center gap-2">
              <Filter className="opacity-20" size={48} />
              <p>沒有符合篩選條件的交易紀錄</p>
-             {(categoryFilter || startDate || endDate) && (
+             {(activeCategoryFilter || startDate || endDate) && (
                 <button 
                     onClick={() => {
                         setSearchParams({});
@@ -440,7 +474,7 @@ export default function Transactions() {
                   
                   <td className="py-4 px-4 md:px-6 text-xs md:text-sm">
                     <span className="px-2 py-1 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium bg-gray-100 text-gray-700">
-                      {t.category}
+                      {getCategoryName(t.category_id)}
                     </span>
                     <div className="md:hidden text-[10px] text-gray-400 mt-1 truncate max-w-[80px]">
                         {t.note}
@@ -452,9 +486,9 @@ export default function Transactions() {
                   </td>
 
                   <td className={`py-4 px-4 md:px-6 text-xs md:text-sm font-bold text-right whitespace-nowrap ${
-                    t.type === 'income' ? 'text-green-600' : 'text-gray-900'
+                    getCategoryType(t.category_id) === 'income' ? 'text-green-600' : 'text-gray-900'
                   }`}>
-                    {t.type === 'expense' ? '' : '+'} 
+                    {getCategoryType(t.category_id) === 'expense' ? '' : '+'} 
                     NT$ {t.amount.toLocaleString()}
                   </td>
                   

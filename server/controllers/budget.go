@@ -94,6 +94,23 @@ func GetBudgetStatus(c *gin.Context) {
 		return
 	}
 
+	catColl := config.GetCollection("categories")
+	catCursor, err := catColl.Find(ctx, bson.M{"owner": currentUser})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "無法讀取分類資料"})
+		return
+	}
+	defer catCursor.Close(ctx)
+	var categories []models.Category
+	if err = catCursor.All(ctx, &categories); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "解析分類資料失敗"})
+		return
+	}
+	categoriesByName := make(map[string]models.Category, len(categories))
+	for _, cat := range categories {
+		categoriesByName[cat.Name] = cat
+	}
+
 	// 2. 計算該月份的實際支出
 	// 計算該月的第一天與最後一天字串，用於查詢 Transaction
 	// e.g., "2026-01" -> start: "2026-01-01", nextMonth: "2026-02-01"
@@ -107,12 +124,24 @@ func GetBudgetStatus(c *gin.Context) {
 	var statusList []gin.H
 
 	for _, b := range budgets {
+		category, ok := categoriesByName[b.Category]
+		if !ok || category.Type == "income" {
+			statusList = append(statusList, gin.H{
+				"id":         b.ID.Hex(),
+				"category":   b.Category,
+				"limit":      b.Amount,
+				"spent":      0.0,
+				"percentage": 0.0,
+				"year_month": b.YearMonth,
+			})
+			continue
+		}
+
 		// 聚合查詢：只查該類別 + 該時間範圍
 		pipeline := mongo.Pipeline{
 			{{Key: "$match", Value: bson.D{
 				{Key: "owner", Value: currentUser},
-				{Key: "type", Value: "expense"},
-				{Key: "category", Value: b.Category},
+				{Key: "category_id", Value: category.ID},
 				{Key: "date", Value: bson.D{
 					{Key: "$gte", Value: startStr},
 					{Key: "$lt", Value: endStr},

@@ -132,8 +132,31 @@ func GetDashboardStats(c *gin.Context) {
 					{Key: "$lt", Value: end.Format("2006-01-02")},
 				}},
 			}}},
+			{{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "categories"},
+				{Key: "let", Value: bson.D{
+					{Key: "catId", Value: "$category_id"},
+					{Key: "owner", Value: "$owner"},
+				}},
+				{Key: "pipeline", Value: bson.A{
+					bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
+						bson.M{"$eq": bson.A{"$_id", "$$catId"}},
+						bson.M{"$eq": bson.A{"$owner", "$$owner"}},
+					}}}},
+					bson.M{"$project": bson.M{"_id": 1, "type": 1}},
+					bson.M{"$limit": 1},
+				}},
+				{Key: "as", Value: "categoryDoc"},
+			}}},
+			{{Key: "$unwind", Value: bson.D{
+				{Key: "path", Value: "$categoryDoc"},
+				{Key: "preserveNullAndEmptyArrays", Value: false},
+			}}},
+			{{Key: "$match", Value: bson.D{
+				{Key: "categoryDoc.type", Value: bson.D{{Key: "$in", Value: bson.A{"income", "expense"}}}},
+			}}},
 			{{Key: "$group", Value: bson.D{
-				{Key: "_id", Value: "$type"},                                   // 依照 type 分組 (income/expense)
+				{Key: "_id", Value: "$categoryDoc.type"},                        // 依照 type 分組 (income/expense)
 				{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}}, // 加總 amount
 			}}},
 		}
@@ -238,13 +261,13 @@ func GetCategoryStats(c *gin.Context) {
 	monthEnd := monthStart.AddDate(0, 1, 0)
 
 	// Aggregation Pipeline:
-	// 1. $match: 只篩選 "expense" (支出)
-	// 2. $group: 依照 "category" 分組，並加總 "amount"
-	// 3. $sort: 依照總金額由大到小排序
+	// 1. $match: 先篩選日期區間
+	// 2. $lookup: 取得分類資訊並篩選 "expense"
+	// 3. $group: 依照 "category_id" 分組，並加總 "amount"
+	// 4. $sort: 依照總金額由大到小排序
 	pipeline := mongo.Pipeline{
 		{{Key: "$match", Value: bson.D{
 			{Key: "owner", Value: currentUser},
-			{Key: "type", Value: "expense"},
 			{Key: "date", Value: bson.D{
 				{Key: "$gte", Value: monthStart.Format("2006-01-02")},
 				{Key: "$lt", Value: monthEnd.Format("2006-01-02")},
@@ -253,15 +276,15 @@ func GetCategoryStats(c *gin.Context) {
 		{{Key: "$lookup", Value: bson.D{
 			{Key: "from", Value: "categories"},
 			{Key: "let", Value: bson.D{
-				{Key: "catName", Value: "$category"},
+				{Key: "catId", Value: "$category_id"},
 				{Key: "owner", Value: "$owner"},
 			}},
 			{Key: "pipeline", Value: bson.A{
 				bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
-					bson.M{"$eq": bson.A{"$name", "$$catName"}},
+					bson.M{"$eq": bson.A{"$_id", "$$catId"}},
 					bson.M{"$eq": bson.A{"$owner", "$$owner"}},
 				}}}},
-				bson.M{"$project": bson.M{"_id": 1, "type": 1}},
+				bson.M{"$project": bson.M{"_id": 1, "name": 1, "type": 1, "order": 1}},
 				bson.M{"$limit": 1},
 			}},
 			{Key: "as", Value: "categoryDoc"},
@@ -271,13 +294,15 @@ func GetCategoryStats(c *gin.Context) {
 			{Key: "preserveNullAndEmptyArrays", Value: true},
 		}}},
 		{{Key: "$match", Value: bson.D{
-			{Key: "categoryDoc.type", Value: bson.D{{Key: "$ne", Value: "income"}}},
+			{Key: "categoryDoc.type", Value: "expense"},
 		}}},
 		{{Key: "$group", Value: bson.D{
-			{Key: "_id", Value: "$category"},
+			{Key: "_id", Value: "$categoryDoc._id"},
+			{Key: "name", Value: bson.D{{Key: "$first", Value: "$categoryDoc.name"}}},
+			{Key: "order", Value: bson.D{{Key: "$first", Value: "$categoryDoc.order"}}},
 			{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}},
 		}}},
-		{{Key: "$sort", Value: bson.D{{Key: "total", Value: -1}}}}, // 金額大的排前面
+		{{Key: "$sort", Value: bson.D{{Key: "total", Value: -1}, {Key: "order", Value: 1}, {Key: "name", Value: 1}}}}, // 金額大的排前面
 	}
 
 	cursor, err := collection.Aggregate(ctx, pipeline)
@@ -294,12 +319,19 @@ func GetCategoryStats(c *gin.Context) {
 	}
 
 	// 整理回傳格式
-	// 目標格式: [{"category": "Food", "amount": 500}, ...]
+	// 目標格式: [{"categoryId": "...", "category": "Food", "amount": 500}, ...]
 	var stats []gin.H
 	for _, result := range results {
+		categoryID := ""
+		if id, ok := result["_id"].(primitive.ObjectID); ok {
+			categoryID = id.Hex()
+		} else if id, ok := result["_id"].(string); ok {
+			categoryID = id
+		}
 		stats = append(stats, gin.H{
-			"category": result["_id"],
-			"amount":   result["total"],
+			"categoryId": categoryID,
+			"category":   result["name"],
+			"amount":     result["total"],
 		})
 	}
 
@@ -333,9 +365,8 @@ func UpdateTransaction(c *gin.Context) {
 
 	update := bson.M{
 		"$set": bson.M{
-			"type":       input.Type,
 			"amount":     input.Amount,
-			"category":   input.Category,
+			"category_id": input.CategoryID,
 			"date":       input.Date,
 			"note":       input.Note,
 			"owner":      currentUser,
@@ -427,43 +458,48 @@ func GetMonthlyComparison(c *gin.Context) {
 	lastMonthEnd := thisMonthStart
 
 	// 2. 定義 Aggregation 函式 (重用邏輯)
-		getStats := func(start, end time.Time) (map[string]float64, error) {
-			pipeline := mongo.Pipeline{
-				{{Key: "$match", Value: bson.D{
-					{Key: "owner", Value: currentUser},
-					{Key: "type", Value: "expense"}, // 只看支出
-					{Key: "date", Value: bson.D{
-						{Key: "$gte", Value: start.Format("2006-01-02")},
-						{Key: "$lt", Value: end.Format("2006-01-02")},
-					}},
-				}}},
-				{{Key: "$lookup", Value: bson.D{
-					{Key: "from", Value: "categories"},
-					{Key: "let", Value: bson.D{
-						{Key: "catName", Value: "$category"},
-						{Key: "owner", Value: "$owner"},
-					}},
-					{Key: "pipeline", Value: bson.A{
-						bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
-							bson.M{"$eq": bson.A{"$name", "$$catName"}},
-							bson.M{"$eq": bson.A{"$owner", "$$owner"}},
-						}}}},
-						bson.M{"$project": bson.M{"_id": 1, "type": 1}},
-						bson.M{"$limit": 1},
-					}},
-					{Key: "as", Value: "categoryDoc"},
-				}}},
-				{{Key: "$unwind", Value: bson.D{
-					{Key: "path", Value: "$categoryDoc"},
-					{Key: "preserveNullAndEmptyArrays", Value: true},
-				}}},
-				{{Key: "$match", Value: bson.D{
-					{Key: "categoryDoc.type", Value: bson.D{{Key: "$ne", Value: "income"}}},
-				}}},
-				{{Key: "$group", Value: bson.D{
-					{Key: "_id", Value: "$category"},
-					{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}},
-				}}},
+	type categoryStat struct {
+		Name  string
+		Total float64
+	}
+
+	getStats := func(start, end time.Time) (map[string]categoryStat, error) {
+		pipeline := mongo.Pipeline{
+			{{Key: "$match", Value: bson.D{
+				{Key: "owner", Value: currentUser},
+				{Key: "date", Value: bson.D{
+					{Key: "$gte", Value: start.Format("2006-01-02")},
+					{Key: "$lt", Value: end.Format("2006-01-02")},
+				}},
+			}}},
+			{{Key: "$lookup", Value: bson.D{
+				{Key: "from", Value: "categories"},
+				{Key: "let", Value: bson.D{
+					{Key: "catId", Value: "$category_id"},
+					{Key: "owner", Value: "$owner"},
+				}},
+				{Key: "pipeline", Value: bson.A{
+					bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
+						bson.M{"$eq": bson.A{"$_id", "$$catId"}},
+						bson.M{"$eq": bson.A{"$owner", "$$owner"}},
+					}}}},
+					bson.M{"$project": bson.M{"_id": 1, "name": 1, "type": 1, "order": 1}},
+					bson.M{"$limit": 1},
+				}},
+				{Key: "as", Value: "categoryDoc"},
+			}}},
+			{{Key: "$unwind", Value: bson.D{
+				{Key: "path", Value: "$categoryDoc"},
+				{Key: "preserveNullAndEmptyArrays", Value: false},
+			}}},
+			{{Key: "$match", Value: bson.D{
+				{Key: "categoryDoc.type", Value: "expense"},
+			}}},
+			{{Key: "$group", Value: bson.D{
+				{Key: "_id", Value: "$categoryDoc._id"},
+				{Key: "name", Value: bson.D{{Key: "$first", Value: "$categoryDoc.name"}}},
+				{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}},
+			}}},
 		}
 
 		cursor, err := collection.Aggregate(ctx, pipeline)
@@ -477,9 +513,20 @@ func GetMonthlyComparison(c *gin.Context) {
 			return nil, err
 		}
 
-		stats := make(map[string]float64)
+		stats := make(map[string]categoryStat)
 		for _, r := range results {
-			stats[r["_id"].(string)] = r["total"].(float64)
+			id := ""
+			if objID, ok := r["_id"].(primitive.ObjectID); ok {
+				id = objID.Hex()
+			} else if strID, ok := r["_id"].(string); ok {
+				id = strID
+			}
+			if id == "" {
+				continue
+			}
+			name, _ := r["name"].(string)
+			total, _ := r["total"].(float64)
+			stats[id] = categoryStat{Name: name, Total: total}
 		}
 		return stats, nil
 	}
@@ -499,20 +546,37 @@ func GetMonthlyComparison(c *gin.Context) {
 
 	// 4. 合併資料 (Merge)
 	// 找出所有出現過的類別
-	categories := make(map[string]bool)
-	for k := range thisMonthStats {
-		categories[k] = true
+	categories := make(map[string]string)
+	for k, v := range thisMonthStats {
+		categories[k] = v.Name
 	}
-	for k := range lastMonthStats {
-		categories[k] = true
+	for k, v := range lastMonthStats {
+		if _, ok := categories[k]; !ok {
+			categories[k] = v.Name
+		}
 	}
 
 	var response []gin.H
-	for cat := range categories {
+	for catID, catName := range categories {
+		current := 0.0
+		previous := 0.0
+		if stat, ok := thisMonthStats[catID]; ok {
+			current = stat.Total
+			if catName == "" {
+				catName = stat.Name
+			}
+		}
+		if stat, ok := lastMonthStats[catID]; ok {
+			previous = stat.Total
+			if catName == "" {
+				catName = stat.Name
+			}
+		}
 		response = append(response, gin.H{
-			"category": cat,
-			"current":  thisMonthStats[cat], // 若無 key 會回傳 0 (float64 預設值)
-			"previous": lastMonthStats[cat],
+			"categoryId": catID,
+			"category":   catName,
+			"current":    current, // 若無 key 會回傳 0 (float64 預設值)
+			"previous":   previous,
 		})
 	}
 

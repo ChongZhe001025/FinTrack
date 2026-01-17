@@ -8,12 +8,14 @@ import { Loader2, PieChart as PieIcon, ChevronLeft, ChevronRight, BarChart3, Cal
 import { useNavigate } from 'react-router-dom';
 
 interface CategoryStat {
+  categoryId?: string;
   category: string;
   amount: number;
   [key: string]: unknown; 
 }
 
 interface ComparisonStat {
+  categoryId?: string;
   category: string;
   current: number;
   previous: number;
@@ -217,10 +219,13 @@ export default function Stats() {
               const percent = totalExpense > 0 
                 ? ((item.amount / totalExpense) * 100).toFixed(1) 
                 : "0.0";
+              const categoryQuery = item.categoryId
+                ? `category_id=${encodeURIComponent(item.categoryId)}`
+                : `category=${encodeURIComponent(item.category)}`;
               return (
                 <div 
-                    key={item.category} 
-                    onClick={() => navigate(`/transactions?category=${encodeURIComponent(item.category)}&month=${baseMonth}`)}
+                    key={item.categoryId || item.category} 
+                    onClick={() => navigate(`/transactions?${categoryQuery}&month=${baseMonth}`)}
                     className="flex items-center justify-between p-2 md:p-3 hover:bg-indigo-50 rounded-lg transition cursor-pointer group"
                 >
                   <div className="flex items-center gap-3">

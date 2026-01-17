@@ -12,15 +12,11 @@ type Transaction struct {
 	// omitempty: 如果是空的 (建立時) 就不傳這個欄位給 MongoDB，讓它自己生
 	ID primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 
-	// Type: "income" 或 "expense"
-	// binding:"required": Gin 會幫我們檢查這個欄位必填
-	Type string `bson:"type" json:"type" binding:"required,oneof=income expense" example:"expense"`
-
 	// Amount: 金額
 	Amount float64 `bson:"amount" json:"amount" binding:"required" example:"150"`
 
-	// Category: 類別 (如: Food, Transport)
-	Category string `bson:"category" json:"category" binding:"required" example:"Food"`
+	// CategoryID: 類別 ID
+	CategoryID primitive.ObjectID `bson:"category_id" json:"category_id" binding:"required" example:"64cfe3f1f1f1f1f1f1f1f1f1"`
 
 	// Date: 日期字串 "YYYY-MM-DD"
 	// 為了配合前端傳來的格式，我們先用 string 存，方便處理

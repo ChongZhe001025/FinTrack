@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Trash2, Edit2, Plus, Check, X, Tag } from 'lucide-react';
+import { Trash2, Edit2, Plus, Check, X, Tag, GripVertical } from 'lucide-react';
 import clsx from 'clsx';
 
 interface Category {
   id: string;
   name: string;
-  type: string;
+  type: 'income' | 'expense';
+  order?: number;
 }
 
 export default function CategorySettings() {
@@ -17,15 +18,25 @@ export default function CategorySettings() {
   // 編輯狀態
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editType, setEditType] = useState<'income' | 'expense'>('expense');
 
   // 新增狀態
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
 
+  // 拖拉排序狀態
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
   const fetchCategories = async () => {
     try {
       const res = await axios.get('/api/v1/categories');
-      setCategories(res.data || []);
+      const data = (res.data || []).slice().sort((a: Category, b: Category) => {
+        const orderDiff = (a.order ?? 0) - (b.order ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return a.name.localeCompare(b.name, 'zh-Hant');
+      });
+      setCategories(data);
     } catch (error) {
       console.error(error);
     } finally {
@@ -52,18 +63,88 @@ export default function CategorySettings() {
   const startEdit = (category: Category) => {
     setEditingId(category.id);
     setEditName(category.name);
+    setEditType(category.type === 'income' ? 'income' : 'expense');
   };
 
   // 儲存編輯
   const saveEdit = async () => {
     if (!editingId || !editName.trim()) return;
     try {
-      await axios.put(`/api/v1/categories/${editingId}`, { name: editName });
-      setCategories(prev => prev.map(c => c.id === editingId ? { ...c, name: editName } : c));
+      const payload = { name: editName.trim(), type: editType };
+      await axios.put(`/api/v1/categories/${editingId}`, payload);
+      setCategories(prev => prev.map(c => c.id === editingId ? { ...c, ...payload } : c));
       setEditingId(null);
     } catch (error) {
       alert('修改失敗');
     }
+  };
+
+  const persistOrder = async (updates: Array<{ id: string; order: number }>) => {
+    if (updates.length === 0) return;
+
+    try {
+      await Promise.all(
+        updates.map((item) =>
+          axios.put(`/api/v1/categories/${item.id}`, { order: item.order })
+        )
+      );
+    } catch (error) {
+      alert('排序更新失敗，請再試一次');
+      fetchCategories();
+    }
+  };
+
+  const handleDragStart = (event: React.DragEvent<HTMLButtonElement>, id: string) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', id);
+    setDraggingId(id);
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>, id: string) => {
+    if (!draggingId || draggingId === id) return;
+    event.preventDefault();
+    setDragOverId(id);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>, id: string) => {
+    event.preventDefault();
+    if (!draggingId || draggingId === id) {
+      setDragOverId(null);
+      return;
+    }
+
+    const fromIndex = categories.findIndex((cat) => cat.id === draggingId);
+    const toIndex = categories.findIndex((cat) => cat.id === id);
+    if (fromIndex === -1 || toIndex === -1) {
+      setDragOverId(null);
+      setDraggingId(null);
+      return;
+    }
+
+    const next = [...categories];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    const nextWithOrder = next.map((cat, index) => ({ ...cat, order: index + 1 }));
+    const updates = nextWithOrder
+      .map((cat) => {
+        const previous = categories.find((prevCat) => prevCat.id === cat.id);
+        const previousOrder = previous?.order ?? 0;
+        if (previousOrder !== cat.order) {
+          return { id: cat.id, order: cat.order ?? 0 };
+        }
+        return null;
+      })
+      .filter((item): item is { id: string; order: number } => item !== null);
+
+    setCategories(nextWithOrder);
+    setDragOverId(null);
+    setDraggingId(null);
+    persistOrder(updates);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDragOverId(null);
   };
 
   // 儲存新增
@@ -74,7 +155,11 @@ export default function CategorySettings() {
         name: newName,
         type: 'expense',
       });
-      setCategories(prev => [...prev, res.data]);
+      setCategories(prev => [...prev, res.data].sort((a: Category, b: Category) => {
+        const orderDiff = (a.order ?? 0) - (b.order ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return a.name.localeCompare(b.name, 'zh-Hant');
+      }));
       setIsAdding(false);
       setNewName('');
     } catch (error) {
@@ -123,55 +208,100 @@ export default function CategorySettings() {
           <div className="p-8 text-center text-gray-400">載入中...</div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {categories.map((cat) => (
-              <div key={cat.id} className="p-4 flex items-center justify-between group hover:bg-gray-50 transition">
-                {editingId === cat.id ? (
-                  // 編輯模式
-                  <div className="flex items-center gap-3 w-full">
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={e => setEditName(e.target.value)}
-                      className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                    />
-                    <button onClick={saveEdit} className="p-2 text-green-600 hover:bg-green-50 rounded-lg">
-                      <Check size={18} />
-                    </button>
-                    <button onClick={() => setEditingId(null)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg">
-                      <X size={18} />
-                    </button>
-                  </div>
-                ) : (
-                  // 顯示模式
-                  <>
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={clsx(
-                          "w-2 h-8 rounded-full",
-                          cat.type === 'income' ? "bg-emerald-400" : "bg-rose-400"
-                        )}
-                      ></div>
-                      <span className="font-medium text-gray-700">{cat.name}</span>
-                    </div>
+            {categories.map((cat) => {
+              const isEditing = editingId === cat.id;
+              const isDragging = draggingId === cat.id;
+              const isDragOver = dragOverId === cat.id;
 
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => startEdit(cat)}
-                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+              return (
+                <div
+                  key={cat.id}
+                  onDragOver={(event) => handleDragOver(event, cat.id)}
+                  onDrop={(event) => handleDrop(event, cat.id)}
+                  className={clsx(
+                    "p-4 flex items-center gap-3 group transition",
+                    isDragOver ? "bg-indigo-50" : "hover:bg-gray-50",
+                    isDragging && "opacity-60"
+                  )}
+                >
+                  <button
+                    type="button"
+                    title="拖曳排序"
+                    draggable={!isEditing}
+                    onDragStart={(event) => handleDragStart(event, cat.id)}
+                    onDragEnd={handleDragEnd}
+                    className={clsx(
+                      "p-1 rounded text-gray-300",
+                      isEditing ? "cursor-not-allowed" : "cursor-grab hover:text-gray-500"
+                    )}
+                  >
+                    <GripVertical size={16} />
+                  </button>
+
+                  {isEditing ? (
+                    <div className="flex items-center gap-3 w-full">
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      />
+                      <select
+                        value={editType}
+                        onChange={(e) => setEditType(e.target.value as 'income' | 'expense')}
+                        className="p-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
                       >
-                        <Edit2 size={16} />
+                        <option value="expense">支出</option>
+                        <option value="income">收入</option>
+                      </select>
+                      <button onClick={saveEdit} className="p-2 text-green-600 hover:bg-green-50 rounded-lg">
+                        <Check size={18} />
                       </button>
-                      <button
-                        onClick={() => handleDelete(cat.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                      >
-                        <Trash2 size={16} />
+                      <button onClick={() => setEditingId(null)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg">
+                        <X size={18} />
                       </button>
                     </div>
-                  </>
-                )}
-              </div>
-            ))}
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3 flex-1">
+                        <div
+                          className={clsx(
+                            "w-2 h-8 rounded-full",
+                            cat.type === 'income' ? "bg-emerald-400" : "bg-rose-400"
+                          )}
+                        ></div>
+                        <span className="font-medium text-gray-700">{cat.name}</span>
+                        <span
+                          className={clsx(
+                            "text-xs px-2 py-1 rounded-full font-medium",
+                            cat.type === 'income'
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-rose-50 text-rose-700"
+                          )}
+                        >
+                          {cat.type === 'income' ? '收入' : '支出'}
+                        </span>
+                      </div>
+
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => startEdit(cat)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(cat.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

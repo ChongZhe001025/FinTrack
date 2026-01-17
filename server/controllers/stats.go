@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // WeeklyStat 回傳格式
@@ -51,10 +52,34 @@ func GetWeeklyHabits(c *gin.Context) {
 		startDate = todayEnd.AddDate(0, -3, 0).Format("2006-01-02")
 	}
 
+	catCollection := config.GetCollection("categories")
+	catCursor, err := catCollection.Find(ctx, bson.M{"owner": currentUser, "type": "expense"})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "無法取得分類資料"})
+		return
+	}
+	defer catCursor.Close(ctx)
+
+	var expenseCategories []models.Category
+	if err = catCursor.All(ctx, &expenseCategories); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "解析分類資料失敗"})
+		return
+	}
+
+	if len(expenseCategories) == 0 {
+		c.JSON(http.StatusOK, []WeeklyStat{})
+		return
+	}
+
+	expenseIDs := make([]primitive.ObjectID, 0, len(expenseCategories))
+	for _, cat := range expenseCategories {
+		expenseIDs = append(expenseIDs, cat.ID)
+	}
+
 	filter := bson.M{
-		"owner": currentUser,
-		"type":  "expense",
-		"date":  bson.M{"$gte": startDate},
+		"owner":       currentUser,
+		"category_id": bson.M{"$in": expenseIDs},
+		"date":        bson.M{"$gte": startDate},
 	}
 
 	cursor, err := collection.Find(ctx, filter)

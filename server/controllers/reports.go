@@ -84,9 +84,25 @@ func GetYearlyReport(c *gin.Context) {
 	pipeline := mongo.Pipeline{
 		{{Key: "$match", Value: bson.M{
 			"owner": currentUser,
-			"type":  bson.M{"$in": bson.A{"expense", "income"}},
+		}}},
+		{{Key: "$lookup", Value: bson.M{
+			"from": "categories",
+			"let":  bson.M{"catId": "$category_id", "owner": "$owner"},
+			"pipeline": bson.A{
+				bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
+					bson.M{"$eq": bson.A{"$_id", "$$catId"}},
+					bson.M{"$eq": bson.A{"$owner", "$$owner"}},
+				}}}},
+				bson.M{"$project": bson.M{"_id": 1, "name": 1, "type": 1}},
+			},
+			"as": "categoryDoc",
+		}}},
+		{{Key: "$unwind", Value: bson.M{
+			"path":                       "$categoryDoc",
+			"preserveNullAndEmptyArrays": false,
 		}}},
 		{{Key: "$addFields", Value: bson.M{
+			"type": "$categoryDoc.type",
 			"dateParsed": bson.M{
 				"$ifNull": bson.A{
 					"$dateAt",
@@ -100,6 +116,7 @@ func GetYearlyReport(c *gin.Context) {
 		}}},
 		{{Key: "$match", Value: bson.M{
 			"dateParsed": bson.M{"$gte": start, "$lt": end},
+			"type":       bson.M{"$in": bson.A{"expense", "income"}},
 		}}},
 		{{Key: "$facet", Value: bson.M{
 			"monthly": bson.A{
@@ -154,30 +171,15 @@ func GetYearlyReport(c *gin.Context) {
 			"byCategory": bson.A{
 				bson.M{"$match": bson.M{"type": "expense"}},
 				bson.M{"$group": bson.M{
-					"_id":   "$category",
+					"_id":   "$category_id",
 					"total": bson.M{"$sum": "$amount"},
 					"count": bson.M{"$sum": 1},
-				}},
-				bson.M{"$lookup": bson.M{
-					"from": "categories",
-					"let":  bson.M{"catId": "$_id"},
-					"pipeline": bson.A{
-						bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
-							bson.M{"$eq": bson.A{"$_id", "$$catId"}},
-							bson.M{"$eq": bson.A{"$owner", currentUser}},
-						}}}},
-						bson.M{"$project": bson.M{"_id": 1, "name": 1}},
-					},
-					"as": "categoryDoc",
-				}},
-				bson.M{"$unwind": bson.M{
-					"path":                       "$categoryDoc",
-					"preserveNullAndEmptyArrays": true,
+					"name":  bson.M{"$first": "$categoryDoc.name"},
 				}},
 				bson.M{"$project": bson.M{
 					"_id":          0,
-					"categoryId":   bson.M{"$ifNull": bson.A{"$categoryDoc._id", "$_id"}},
-					"categoryName": bson.M{"$ifNull": bson.A{"$categoryDoc.name", "$_id"}},
+					"categoryId":   "$_id",
+					"categoryName": "$name",
 					"total":        1,
 					"count":        1,
 				}},

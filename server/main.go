@@ -52,13 +52,13 @@ func seedCategories() {
 	count, _ := collection.CountDocuments(ctx, bson.M{})
 	if count == 0 {
 		defaults := []interface{}{
-			models.Category{ID: primitive.NewObjectID(), Name: "Food", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Transport", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Shopping", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Housing", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Entertainment", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Medical", Type: "expense"},
-			models.Category{ID: primitive.NewObjectID(), Name: "Salary", Type: "income"},
+			models.Category{ID: primitive.NewObjectID(), Name: "Food", Type: "expense", Order: 1},
+			models.Category{ID: primitive.NewObjectID(), Name: "Transport", Type: "expense", Order: 2},
+			models.Category{ID: primitive.NewObjectID(), Name: "Shopping", Type: "expense", Order: 3},
+			models.Category{ID: primitive.NewObjectID(), Name: "Housing", Type: "expense", Order: 4},
+			models.Category{ID: primitive.NewObjectID(), Name: "Entertainment", Type: "expense", Order: 5},
+			models.Category{ID: primitive.NewObjectID(), Name: "Medical", Type: "expense", Order: 6},
+			models.Category{ID: primitive.NewObjectID(), Name: "Salary", Type: "income", Order: 7},
 		}
 		collection.InsertMany(ctx, defaults)
 		// 建議：生產環境改用 log 套件，避免使用 println

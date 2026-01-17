@@ -21,13 +21,18 @@ interface DashboardStats {
 interface Transaction {
   amount: number;
   date: string;
-  type: 'income' | 'expense';
+  category_id: string;
 }
 
 interface ChartData {
   name: string;
   fullDate: string;
   amount: number;
+}
+
+interface Category {
+  id: string;
+  type: 'income' | 'expense';
 }
 
 const normalizeTransactions = (value: unknown): Transaction[] => {
@@ -97,6 +102,7 @@ const StatCard = ({ title, amount, type }: { title: string, amount: string, type
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>({ total_income: 0, total_expense: 0, balance: 0 });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -113,9 +119,10 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, transRes] = await Promise.all([
+        const [statsRes, transRes, catRes] = await Promise.all([
             axios.get('/api/v1/stats', { params: { month: currentMonth } }),
-            axios.get('/api/v1/transactions')
+            axios.get('/api/v1/transactions'),
+            axios.get('/api/v1/categories')
         ]);
         setStats(statsRes.data);
         const normalizedTransactions = normalizeTransactions(transRes.data);
@@ -123,6 +130,7 @@ export default function Dashboard() {
           console.warn('Unexpected transactions response:', transRes.data);
         }
         setTransactions(normalizedTransactions);
+        setCategories(catRes.data || []);
       } catch (error) {
         console.error("無法取得 Dashboard 資料:", error);
       } finally {
@@ -146,6 +154,14 @@ export default function Dashboard() {
     Number.isInteger(selectedYear) &&
     Number.isInteger(selectedMonth) &&
     selectedMonthDate.getTime() >= maxMonthStart.getTime();
+
+  const categoryTypeById = useMemo(() => {
+    const map = new Map<string, 'income' | 'expense'>();
+    categories.forEach((category) => {
+      map.set(category.id, category.type);
+    });
+    return map;
+  }, [categories]);
 
   // 3. 修改 useMemo 邏輯，加入 custom 判斷
   const chartData = useMemo<ChartData[]>(() => {
@@ -182,7 +198,7 @@ export default function Dashboard() {
     // 注意：如果是 'custom'，我們會在下面迴圈內直接比較 startStr 和 endStr
 
     transactions.forEach(t => {
-        if (t.type === 'expense') {
+        if (categoryTypeById.get(t.category_id) === 'expense') {
             const tDate = new Date(t.date);
             // 清除時分秒，確保只比對日期
             tDate.setHours(0, 0, 0, 0);
@@ -213,7 +229,7 @@ export default function Dashboard() {
             amount 
         }))
         .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
-  }, [transactions, timeRange, startDate, endDate, currentMonth]); // 注意：這裡要加入 startDate, endDate 到依賴陣列
+  }, [transactions, categoryTypeById, timeRange, startDate, endDate, currentMonth]); // 注意：這裡要加入 startDate, endDate 到依賴陣列
 
   // 4. 自訂 DatePicker 的 Trigger 按鈕元件
   // 使用 forwardRef 讓 DatePicker 可以綁定點擊事件

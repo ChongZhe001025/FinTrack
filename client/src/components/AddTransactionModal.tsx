@@ -7,17 +7,15 @@ import axios from 'axios';
 
 interface Transaction {
   id: string;
-  type: 'expense' | 'income';
   amount: number;
-  category: string;
+  category_id: string;
   date: string;
   note: string;
 }
 
 type TransactionFormInputs = {
-  type: 'expense' | 'income';
   amount: number;
-  category: string;
+  category_id: string;
   date: string;
   note: string;
 };
@@ -26,6 +24,7 @@ interface Category {
   id: string;
   name: string;
   type: string;
+  order?: number;
 }
 
 interface TransactionModalProps {
@@ -37,16 +36,17 @@ interface TransactionModalProps {
 export default function TransactionModal({ isOpen, onClose, editData }: TransactionModalProps) {
   const { register, handleSubmit, watch, setValue, reset, getValues, formState: { errors } } = useForm<TransactionFormInputs>({
     defaultValues: {
-      type: 'expense',
       date: new Date().toISOString().split('T')[0],
-      category: ''
+      category_id: ''
     }
   });
 
-  const type = watch('type');
+  const [selectedType, setSelectedType] = useState<'expense' | 'income'>('expense');
+  const [isTypeTouched, setIsTypeTouched] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const filteredCategories = categories.filter((category) => category.type === selectedType);
 
   // 初始化
   useEffect(() => {
@@ -58,40 +58,58 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
     if (isOpen) {
       if (editData) {
         // 編輯模式
-        setValue('type', editData.type);
         setValue('amount', editData.amount);
-        setValue('category', editData.category);
+        setValue('category_id', editData.category_id);
         setValue('date', editData.date);
         setValue('note', editData.note);
       } else {
         // 新增模式：重置表單
         reset({
-            type: 'expense',
             date: new Date().toISOString().split('T')[0],
-            category: '',
+            category_id: '',
             amount: undefined,
             note: ''
         });
+        setSelectedType('expense');
       }
+      setIsTypeTouched(false);
       setIsAddingCategory(false);
       setNewCategoryName('');
     }
   }, [isOpen, editData, setValue, reset]);
 
   useEffect(() => {
-    if (!isOpen || editData || categories.length === 0) return;
-    const currentCategory = getValues('category');
-    const hasCurrent = categories.some((category) => category.name === currentCategory);
-    if (!currentCategory || !hasCurrent) {
-      setValue('category', categories[0].name);
+    if (!isOpen || categories.length === 0) return;
+    const currentCategoryId = getValues('category_id');
+    if (editData && !isTypeTouched && currentCategoryId) {
+      return;
     }
-  }, [isOpen, editData, categories, getValues, setValue]);
+    const filtered = categories.filter((category) => category.type === selectedType);
+    if (filtered.length === 0) return;
+    const hasCurrent = filtered.some((category) => category.id === currentCategoryId);
+    if (!currentCategoryId || !hasCurrent) {
+      setValue('category_id', filtered[0].id);
+    }
+  }, [isOpen, categories, selectedType, editData, isTypeTouched, getValues, setValue]);
+
+  useEffect(() => {
+    if (!isOpen || !editData || categories.length === 0 || isTypeTouched) return;
+    const current = categories.find((category) => category.id === editData.category_id);
+    if (current && (current.type === 'income' || current.type === 'expense')) {
+      setSelectedType(current.type);
+    }
+  }, [isOpen, editData, categories, isTypeTouched]);
 
   // 取得類別列表
   const fetchCategories = async () => {
     try {
       const res = await axios.get('/api/v1/categories');
-      setCategories(res.data || []);
+      const data = (res.data || []).slice().sort((a: Category, b: Category) => {
+        const orderDiff = (a.order ?? 0) - (b.order ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return a.name.localeCompare(b.name, 'zh-Hant');
+      });
+      setCategories(data);
     } catch (error) {
       console.error("無法取得類別", error);
     }
@@ -103,10 +121,10 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
       if (value === 'custom_new_category_trigger') {
           setIsAddingCategory(true);
           // 保持當前選擇，避免跳掉
-          const currentCategory = watch('category');
-          setValue('category', currentCategory); 
+          const currentCategory = watch('category_id');
+          setValue('category_id', currentCategory); 
       } else {
-          setValue('category', value);
+          setValue('category_id', value);
       }
   };
 
@@ -116,14 +134,18 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
     try {
       const res = await axios.post('/api/v1/categories', {
         name: newCategoryName,
-        type: type 
+        type: selectedType 
       });
       
-      const updatedList = [...categories, res.data];
+      const updatedList = [...categories, res.data].sort((a: Category, b: Category) => {
+        const orderDiff = (a.order ?? 0) - (b.order ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return a.name.localeCompare(b.name, 'zh-Hant');
+      });
       setCategories(updatedList);
       
       setIsAddingCategory(false);
-      setValue('category', res.data.name);
+      setValue('category_id', res.data.id);
       setNewCategoryName('');
     } catch (error) {
       console.error(error); 
@@ -191,20 +213,26 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
             <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-lg">
               <button
                 type="button"
-                onClick={() => setValue('type', 'expense')}
+                onClick={() => {
+                  setSelectedType('expense');
+                  setIsTypeTouched(true);
+                }}
                 className={clsx(
                   "py-2 text-sm font-bold rounded-md transition-all",
-                  type === 'expense' ? "bg-white text-red-500 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  selectedType === 'expense' ? "bg-white text-red-500 shadow-sm" : "text-gray-500 hover:text-gray-700"
                 )}
               >
                 支出
               </button>
               <button
                 type="button"
-                onClick={() => setValue('type', 'income')}
+                onClick={() => {
+                  setSelectedType('income');
+                  setIsTypeTouched(true);
+                }}
                 className={clsx(
                   "py-2 text-sm font-bold rounded-md transition-all",
-                  type === 'income' ? "bg-white text-green-500 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  selectedType === 'income' ? "bg-white text-green-500 shadow-sm" : "text-gray-500 hover:text-gray-700"
                 )}
               >
                 收入
@@ -222,7 +250,7 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
                   className={clsx(
                     "w-full text-3xl font-bold p-3 border rounded-xl focus:ring-2 focus:outline-none transition-colors text-right",
                     errors.amount ? "border-red-300 focus:ring-red-200" : "border-gray-200 focus:ring-indigo-100 focus:border-indigo-400",
-                    type === 'expense' ? "text-red-500" : "text-green-500"
+                    selectedType === 'expense' ? "text-red-500" : "text-green-500"
                   )}
                   placeholder="0"
                   autoFocus={!editData}
@@ -248,12 +276,12 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
                 {!isAddingCategory ? (
                     <div className="relative">
                         <select
-                        {...register('category')}
+                        {...register('category_id')}
                         onChange={handleCategoryChange}
                         className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-indigo-400 appearance-none"
                         >
-                            {categories.map(c => (
-                                <option key={c.id} value={c.name}>
+                            {filteredCategories.map(c => (
+                                <option key={c.id} value={c.id}>
                                     {c.name}
                                 </option>
                             ))}

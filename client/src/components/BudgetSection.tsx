@@ -17,6 +17,7 @@ interface Category {
   id: string;
   name: string;
   type?: string;
+  order?: number;
 }
 
 interface BudgetSectionProps {
@@ -49,7 +50,12 @@ export default function BudgetSection({ month }: BudgetSectionProps) {
         axios.get('/api/v1/categories')
       ]);
       setBudgets(budgetRes.data || []);
-      setCategories(catRes.data || []);
+      const categoryData = (catRes.data || []).slice().sort((a: Category, b: Category) => {
+        const orderDiff = (a.order ?? 0) - (b.order ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return a.name.localeCompare(b.name, 'zh-Hant');
+      });
+      setCategories(categoryData);
     } catch (error) {
       console.error("無法取得預算資料", error);
     } finally {
@@ -102,7 +108,11 @@ export default function BudgetSection({ month }: BudgetSectionProps) {
       });
       
       // 更新前端列表
-      const updatedList = [...categories, res.data];
+      const updatedList = [...categories, res.data].sort((a: Category, b: Category) => {
+        const orderDiff = (a.order ?? 0) - (b.order ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return a.name.localeCompare(b.name, 'zh-Hant');
+      });
       setCategories(updatedList);
       
       // 自動選中新類別並切換回一般模式
