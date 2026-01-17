@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, forwardRef } from 'react';
 import axios from 'axios';
-import { TrendingUp, TrendingDown, DollarSign, Loader2, Calendar, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Loader2, Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import clsx from 'clsx';
 import DatePicker, { registerLocale } from 'react-datepicker';
@@ -11,6 +11,10 @@ interface DashboardStats {
   total_income: number;
   total_expense: number;
   balance: number;
+  income_trend?: number;
+  expense_trend?: number;
+  balance_trend?: number;
+  month?: string;
 }
 
 interface Transaction {
@@ -94,6 +98,7 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
+  const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [timeRange, setTimeRange] = useState<TimeRange>('7days');
   
   // 2. 新增：自訂區間的開始與結束日期
@@ -104,7 +109,7 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         const [statsRes, transRes] = await Promise.all([
-            axios.get('/api/v1/stats'),
+            axios.get('/api/v1/stats', { params: { month: currentMonth } }),
             axios.get('/api/v1/transactions')
         ]);
         setStats(statsRes.data);
@@ -120,7 +125,13 @@ export default function Dashboard() {
       }
     };
     fetchData();
-  }, []);
+  }, [currentMonth]);
+
+  const changeMonth = (offset: number) => {
+    const date = new Date(currentMonth + "-01");
+    date.setMonth(date.getMonth() + offset);
+    setCurrentMonth(date.toISOString().slice(0, 7));
+  };
 
   // 3. 修改 useMemo 邏輯，加入 custom 判斷
   const chartData = useMemo<ChartData[]>(() => {
@@ -224,12 +235,23 @@ export default function Dashboard() {
         .react-datepicker-wrapper { width: auto; }
       `}</style>
 
-      <h2 className="text-2xl font-bold text-gray-800">本月概況</h2>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <h2 className="text-2xl font-bold text-gray-800">月度概況</h2>
+        <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg">
+          <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
+            <ChevronLeft size={18} className="text-gray-600" />
+          </button>
+          <span className="font-bold text-gray-700 w-20 text-center">{stats.month || currentMonth}</span>
+          <button onClick={() => changeMonth(1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
+            <ChevronRight size={18} className="text-gray-600" />
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard title="本月收入" amount={`NT$ ${stats.total_income.toLocaleString()}`} type="income" />
-        <StatCard title="本月支出" amount={`NT$ ${stats.total_expense.toLocaleString()}`} type="expense" />
-        <StatCard title="目前結餘" amount={`NT$ ${stats.balance.toLocaleString()}`} type="balance" />
+        <StatCard title="月收入" amount={`NT$ ${stats.total_income.toLocaleString()}`} type="income" />
+        <StatCard title="月支出" amount={`NT$ ${stats.total_expense.toLocaleString()}`} type="expense" />
+        <StatCard title="月結餘" amount={`NT$ ${stats.balance.toLocaleString()}`} type="balance" />
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">

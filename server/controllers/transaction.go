@@ -90,9 +90,10 @@ func GetTransactions(c *gin.Context) {
 
 // GetDashboardStats godoc
 // @Summary      取得統計數據
-// @Description  計算總收入、總支出與結餘
+// @Description  計算指定月份的總收入、總支出、結餘與上月環比
 // @Tags         Stats
 // @Produce      json
+// @Param        month query string false "月份 (YYYY-MM)"
 // @Success      200  {object}  map[string]interface{}
 // @Router       /stats [get]
 func GetDashboardStats(c *gin.Context) {
@@ -101,51 +102,104 @@ func GetDashboardStats(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// 使用 MongoDB Aggregation Pipeline 計算總和
-	// 類似 SQL: SELECT type, SUM(amount) FROM transactions GROUP BY type
-	pipeline := mongo.Pipeline{
-		{{Key: "$match", Value: bson.D{{Key: "owner", Value: currentUser}}}},
-		{{Key: "$group", Value: bson.D{
-			{Key: "_id", Value: "$type"},                                   // 依照 type 分組 (income/expense)
-			{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}}, // 加總 amount
-		}}},
+	monthParam := c.Query("month")
+	now := time.Now()
+	location := now.Location()
+	var targetMonth time.Time
+
+	if monthParam == "" {
+		targetMonth = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, location)
+	} else {
+		parsedMonth, err := time.ParseInLocation("2006-01", monthParam, location)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "month 格式錯誤，請使用 YYYY-MM"})
+			return
+		}
+		targetMonth = time.Date(parsedMonth.Year(), parsedMonth.Month(), 1, 0, 0, 0, 0, location)
 	}
 
-	cursor, err := collection.Aggregate(ctx, pipeline)
+	thisMonthStart := targetMonth
+	thisMonthEnd := thisMonthStart.AddDate(0, 1, 0)
+	lastMonthStart := thisMonthStart.AddDate(0, -1, 0)
+	lastMonthEnd := thisMonthStart
+
+	getTotals := func(start, end time.Time) (map[string]float64, error) {
+		pipeline := mongo.Pipeline{
+			{{Key: "$match", Value: bson.D{
+				{Key: "owner", Value: currentUser},
+				{Key: "date", Value: bson.D{
+					{Key: "$gte", Value: start.Format("2006-01-02")},
+					{Key: "$lt", Value: end.Format("2006-01-02")},
+				}},
+			}}},
+			{{Key: "$group", Value: bson.D{
+				{Key: "_id", Value: "$type"},                                   // 依照 type 分組 (income/expense)
+				{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}}, // 加總 amount
+			}}},
+		}
+
+		cursor, err := collection.Aggregate(ctx, pipeline)
+		if err != nil {
+			return nil, err
+		}
+		defer cursor.Close(ctx)
+
+		var results []bson.M
+		if err = cursor.All(ctx, &results); err != nil {
+			return nil, err
+		}
+
+		totals := map[string]float64{
+			"income":  0,
+			"expense": 0,
+		}
+
+		for _, result := range results {
+			typeStr := result["_id"].(string)
+			total := result["total"].(float64) // 注意：MongoDB 數字型別轉換
+			if typeStr == "income" {
+				totals["income"] = total
+			} else if typeStr == "expense" {
+				totals["expense"] = total
+			}
+		}
+
+		return totals, nil
+	}
+
+	thisTotals, err := getTotals(thisMonthStart, thisMonthEnd)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "統計計算失敗"})
 		return
 	}
-	defer cursor.Close(ctx)
 
-	var results []bson.M
-	if err = cursor.All(ctx, &results); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "解析統計失敗"})
+	lastTotals, err := getTotals(lastMonthStart, lastMonthEnd)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "計算上月資料失敗"})
 		return
 	}
 
-	// 整理數據格式
-	stats := map[string]float64{
-		"total_income":  0,
-		"total_expense": 0,
-		"balance":       0,
-	}
-
-	for _, result := range results {
-		// result["_id"] 是 "income" 或 "expense"
-		// result["total"] 是總金額
-		typeStr := result["_id"].(string)
-		total := result["total"].(float64) // 注意：MongoDB 數字型別轉換
-
-		if typeStr == "income" {
-			stats["total_income"] = total
-		} else if typeStr == "expense" {
-			stats["total_expense"] = total
+	calcTrend := func(current, previous float64) float64 {
+		if previous == 0 {
+			return 0
 		}
+		return (current - previous) / previous * 100
 	}
 
-	// 計算結餘
-	stats["balance"] = stats["total_income"] - stats["total_expense"]
+	totalIncome := thisTotals["income"]
+	totalExpense := thisTotals["expense"]
+	balance := totalIncome - totalExpense
+	lastBalance := lastTotals["income"] - lastTotals["expense"]
+
+	stats := gin.H{
+		"total_income":  totalIncome,
+		"total_expense": totalExpense,
+		"balance":       balance,
+		"income_trend":  calcTrend(totalIncome, lastTotals["income"]),
+		"expense_trend": calcTrend(totalExpense, lastTotals["expense"]),
+		"balance_trend": calcTrend(balance, lastBalance),
+		"month":         thisMonthStart.Format("2006-01"),
+	}
 
 	c.JSON(http.StatusOK, stats)
 }
