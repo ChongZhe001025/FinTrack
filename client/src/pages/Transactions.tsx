@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, forwardRef } from 'react';
 import axios from 'axios';
-import { Loader2, AlertCircle, Edit2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Calendar, X } from 'lucide-react';
+import { Loader2, AlertCircle, Edit2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Calendar, X, Clock, Check } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import AddTransactionModal from '../components/AddTransactionModal';
 import clsx from 'clsx';
@@ -9,6 +9,7 @@ import clsx from 'clsx';
 import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { zhTW } from 'date-fns/locale'; 
+import { subDays } from 'date-fns'; // ✨ 引入日期計算函式
 
 // 註冊繁體中文語系
 registerLocale('zh-TW', zhTW);
@@ -35,6 +36,15 @@ interface SortConfig {
   direction: SortDirection;
 }
 
+// ✨ 定義快速選取區間選項
+const QUICK_RANGES = [
+    { label: '近 7 天', days: 7 },
+    { label: '近 30 天', days: 30 },
+    { label: '近 3 個月', days: 90 },
+    { label: '近半年', days: 180 },
+    { label: '近一年', days: 365 },
+];
+
 const formatDate = (date: Date | null) => {
     if (!date) return '';
     const offset = date.getTimezoneOffset();
@@ -56,6 +66,9 @@ export default function Transactions() {
 
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [startDate, endDate] = dateRange;
+
+  // ✨ 控制快速選單開關
+  const [showQuickMenu, setShowQuickMenu] = useState(false);
 
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
 
@@ -91,6 +104,14 @@ export default function Transactions() {
       } else {
           setSearchParams({});
       }
+  };
+
+  // ✨ 處理快速選取邏輯
+  const applyQuickRange = (days: number) => {
+      const end = new Date();
+      const start = subDays(end, days);
+      setDateRange([start, end]);
+      setShowQuickMenu(false);
   };
 
   const handleSort = (key: SortKey) => {
@@ -145,14 +166,11 @@ export default function Transactions() {
         : <ArrowDown size={14} className="text-indigo-600 ml-1" />;
   };
 
-  // 2. 自訂 DatePicker 的 Trigger 按鈕元件
-  // 使用 forwardRef 讓 DatePicker 可以綁定點擊事件
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const CustomDateInput = forwardRef(({ value, onClick }: any, ref: any) => (
     <div 
         className={clsx(
             "flex items-center gap-2 bg-white border px-3 py-2 rounded-lg cursor-pointer transition-all w-full md:w-auto min-w-[240px]",
-            // 如果有選日期，邊框加深；沒選則為灰色
             value ? "border-indigo-300 text-indigo-700 bg-indigo-50/30" : "border-gray-200 text-gray-500 hover:border-gray-300"
         )}
         onClick={onClick}
@@ -164,11 +182,10 @@ export default function Transactions() {
             {value || "選擇日期區間"}
         </span>
 
-        {/* 清除按鈕：只有在有值的時候顯示 */}
         {value && (
             <div 
                 onClick={(e) => {
-                    e.stopPropagation(); // 防止觸發外層的 DatePicker 開啟
+                    e.stopPropagation();
                     setDateRange([null, null]);
                 }}
                 className="p-1 hover:bg-black/10 rounded-full text-gray-400 hover:text-gray-600 transition"
@@ -181,28 +198,80 @@ export default function Transactions() {
   ));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative"> 
       {/* 覆寫 DatePicker 樣式 */}
       <style>{`
         .react-datepicker-wrapper { width: auto; }
       `}</style>
 
+      {/* 點擊遮罩 (當快速選單開啟時，點擊外部關閉) */}
+      {showQuickMenu && (
+        <div 
+            className="fixed inset-0 z-10" 
+            onClick={() => setShowQuickMenu(false)}
+        ></div>
+      )}
+
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <h2 className="text-2xl font-bold text-gray-800 shrink-0">交易紀錄</h2>
         
-        <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto">
+        <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto relative z-20">
             
-            {/* 3. 使用自訂 Input 的 DatePicker */}
-            <DatePicker
-                selectsRange={true}
-                startDate={startDate}
-                endDate={endDate}
-                onChange={(update) => setDateRange(update)}
-                isClearable={false} // 我們自己實作清除按鈕
-                dateFormat="yyyy/MM/dd"
-                locale="zh-TW"
-                customInput={<CustomDateInput />} // 使用上面定義的元件
-            />
+            {/* 日期選擇器組合 */}
+            <div className="flex items-center gap-2">
+                {/* 1. DatePicker */}
+                <DatePicker
+                    selectsRange={true}
+                    startDate={startDate}
+                    endDate={endDate}
+                    onChange={(update) => setDateRange(update)}
+                    isClearable={false}
+                    dateFormat="yyyy/MM/dd"
+                    locale="zh-TW"
+                    customInput={<CustomDateInput />}
+                />
+
+                {/* 2. ✨ 快速選取按鈕 */}
+                <div className="relative">
+                    <button
+                        onClick={() => setShowQuickMenu(!showQuickMenu)}
+                        className={clsx(
+                            "p-2.5 rounded-lg border transition-all hover:bg-gray-50",
+                            showQuickMenu 
+                                ? "border-indigo-300 bg-indigo-50 text-indigo-600" 
+                                : "border-gray-200 text-gray-500"
+                        )}
+                        title="快速選取區間"
+                    >
+                        <Clock size={18} />
+                    </button>
+
+                    {/* 下拉選單 */}
+                    {showQuickMenu && (
+                        <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl py-2 animate-fade-in z-30">
+                            <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                快速篩選
+                            </div>
+                            {QUICK_RANGES.map((range) => {
+                                // 判斷這個選項是否「大概」符合目前的區間 (非必要，但增加 UX)
+                                const isSelected = startDate && endDate && 
+                                    Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) === range.days;
+                                
+                                return (
+                                    <button
+                                        key={range.days}
+                                        onClick={() => applyQuickRange(range.days)}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center justify-between group"
+                                    >
+                                        <span>{range.label}</span>
+                                        {isSelected && <Check size={14} className="text-indigo-600" />}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
 
             {/* 類別篩選器 */}
             <div className="w-full md:w-48 relative shrink-0">
