@@ -140,16 +140,30 @@ export default function Dashboard() {
     const startStr = formatDate(startDate);
     const endStr = formatDate(endDate);
 
-    const cutoffDate = new Date();
-    // 將 cutoffDate 設為當天的 00:00:00，確保比較準確
-    cutoffDate.setHours(0, 0, 0, 0);
+    const [yearText, monthText] = currentMonth.split('-');
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const isValidMonth = Number.isInteger(year) && Number.isInteger(month) && month >= 1 && month <= 12;
+    const selectedMonthStart = isValidMonth
+        ? new Date(year, month - 1, 1)
+        : new Date(now.getFullYear(), now.getMonth(), 1);
+    selectedMonthStart.setHours(0, 0, 0, 0);
 
+    const selectedMonthEndExclusive = new Date(selectedMonthStart);
+    selectedMonthEndExclusive.setMonth(selectedMonthEndExclusive.getMonth() + 1);
+
+    const isCurrentMonth = selectedMonthStart.getFullYear() === now.getFullYear() &&
+        selectedMonthStart.getMonth() === now.getMonth();
+    const rangeEndExclusive = isCurrentMonth
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+        : selectedMonthEndExclusive;
+
+    const cutoffDate = new Date(rangeEndExclusive);
+    cutoffDate.setHours(0, 0, 0, 0);
     if (timeRange === '7days') {
-        cutoffDate.setDate(now.getDate() - 7);
+        cutoffDate.setDate(cutoffDate.getDate() - 7);
     } else if (timeRange === '30days') {
-        cutoffDate.setDate(now.getDate() - 30);
-    } else if (timeRange === 'thisMonth') {
-        cutoffDate.setDate(1);
+        cutoffDate.setDate(cutoffDate.getDate() - 30);
     }
     // 注意：如果是 'custom'，我們會在下面迴圈內直接比較 startStr 和 endStr
 
@@ -162,13 +176,13 @@ export default function Dashboard() {
             let isValid = false;
 
             if (timeRange === 'thisMonth') {
-                isValid = tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
+                isValid = tDate >= selectedMonthStart && tDate < selectedMonthEndExclusive;
             } else if (timeRange === 'custom') {
                 // 自訂區間邏輯：比對交易日期是否在 Start 和 End 之間
                 isValid = (!startStr || t.date >= startStr) && (!endStr || t.date <= endStr);
             } else {
                 // 7天 或 30天
-                isValid = tDate >= cutoffDate;
+                isValid = tDate >= cutoffDate && tDate < rangeEndExclusive;
             }
 
             if (isValid) {
@@ -185,7 +199,7 @@ export default function Dashboard() {
             amount 
         }))
         .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
-  }, [transactions, timeRange, startDate, endDate]); // 注意：這裡要加入 startDate, endDate 到依賴陣列
+  }, [transactions, timeRange, startDate, endDate, currentMonth]); // 注意：這裡要加入 startDate, endDate 到依賴陣列
 
   // 4. 自訂 DatePicker 的 Trigger 按鈕元件
   // 使用 forwardRef 讓 DatePicker 可以綁定點擊事件

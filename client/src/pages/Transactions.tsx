@@ -219,7 +219,48 @@ export default function Transactions() {
             
             {/* 日期選擇器組合 */}
             <div className="flex items-center gap-2">
-                {/* 1. DatePicker */}
+                {/* 1. ✨ 快速選取按鈕（移到左邊） */}
+                <div className="relative">
+                    <button
+                    onClick={() => setShowQuickMenu(!showQuickMenu)}
+                    className={clsx(
+                        "p-2.5 rounded-lg border transition-all hover:bg-gray-50",
+                        showQuickMenu
+                        ? "border-indigo-300 bg-indigo-50 text-indigo-600"
+                        : "border-gray-200 text-gray-500"
+                    )}
+                    title="快速選取區間"
+                    >
+                    <Clock size={18} />
+                    </button>
+
+                    {showQuickMenu && (
+                    <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl py-2 animate-fade-in z-30">
+                        <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        快速篩選
+                        </div>
+                        {QUICK_RANGES.map((range) => {
+                        const isSelected =
+                            startDate &&
+                            endDate &&
+                            Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) === range.days;
+
+                        return (
+                            <button
+                            key={range.days}
+                            onClick={() => applyQuickRange(range.days)}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center justify-between group"
+                            >
+                            <span>{range.label}</span>
+                            {isSelected && <Check size={14} className="text-indigo-600" />}
+                            </button>
+                        );
+                        })}
+                    </div>
+                    )}
+                </div>
+
+                {/* 2. DatePicker */}
                 <DatePicker
                     selectsRange={true}
                     startDate={startDate}
@@ -230,47 +271,6 @@ export default function Transactions() {
                     locale="zh-TW"
                     customInput={<CustomDateInput />}
                 />
-
-                {/* 2. ✨ 快速選取按鈕 */}
-                <div className="relative">
-                    <button
-                        onClick={() => setShowQuickMenu(!showQuickMenu)}
-                        className={clsx(
-                            "p-2.5 rounded-lg border transition-all hover:bg-gray-50",
-                            showQuickMenu 
-                                ? "border-indigo-300 bg-indigo-50 text-indigo-600" 
-                                : "border-gray-200 text-gray-500"
-                        )}
-                        title="快速選取區間"
-                    >
-                        <Clock size={18} />
-                    </button>
-
-                    {/* 下拉選單 */}
-                    {showQuickMenu && (
-                        <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl py-2 animate-fade-in z-30">
-                            <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                快速篩選
-                            </div>
-                            {QUICK_RANGES.map((range) => {
-                                // 判斷這個選項是否「大概」符合目前的區間 (非必要，但增加 UX)
-                                const isSelected = startDate && endDate && 
-                                    Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) === range.days;
-                                
-                                return (
-                                    <button
-                                        key={range.days}
-                                        onClick={() => applyQuickRange(range.days)}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center justify-between group"
-                                    >
-                                        <span>{range.label}</span>
-                                        {isSelected && <Check size={14} className="text-indigo-600" />}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
             </div>
 
             {/* 類別篩選器 */}
