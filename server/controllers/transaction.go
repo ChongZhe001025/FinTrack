@@ -250,6 +250,29 @@ func GetCategoryStats(c *gin.Context) {
 				{Key: "$lt", Value: monthEnd.Format("2006-01-02")},
 			}},
 		}}},
+		{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "categories"},
+			{Key: "let", Value: bson.D{
+				{Key: "catName", Value: "$category"},
+				{Key: "owner", Value: "$owner"},
+			}},
+			{Key: "pipeline", Value: bson.A{
+				bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
+					bson.M{"$eq": bson.A{"$name", "$$catName"}},
+					bson.M{"$eq": bson.A{"$owner", "$$owner"}},
+				}}}},
+				bson.M{"$project": bson.M{"_id": 1, "type": 1}},
+				bson.M{"$limit": 1},
+			}},
+			{Key: "as", Value: "categoryDoc"},
+		}}},
+		{{Key: "$unwind", Value: bson.D{
+			{Key: "path", Value: "$categoryDoc"},
+			{Key: "preserveNullAndEmptyArrays", Value: true},
+		}}},
+		{{Key: "$match", Value: bson.D{
+			{Key: "categoryDoc.type", Value: bson.D{{Key: "$ne", Value: "income"}}},
+		}}},
 		{{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: "$category"},
 			{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}},
@@ -404,20 +427,43 @@ func GetMonthlyComparison(c *gin.Context) {
 	lastMonthEnd := thisMonthStart
 
 	// 2. 定義 Aggregation 函式 (重用邏輯)
-	getStats := func(start, end time.Time) (map[string]float64, error) {
-		pipeline := mongo.Pipeline{
-			{{Key: "$match", Value: bson.D{
-				{Key: "owner", Value: currentUser},
-				{Key: "type", Value: "expense"}, // 只看支出
-				{Key: "date", Value: bson.D{
-					{Key: "$gte", Value: start.Format("2006-01-02")},
-					{Key: "$lt", Value: end.Format("2006-01-02")},
-				}},
-			}}},
-			{{Key: "$group", Value: bson.D{
-				{Key: "_id", Value: "$category"},
-				{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}},
-			}}},
+		getStats := func(start, end time.Time) (map[string]float64, error) {
+			pipeline := mongo.Pipeline{
+				{{Key: "$match", Value: bson.D{
+					{Key: "owner", Value: currentUser},
+					{Key: "type", Value: "expense"}, // 只看支出
+					{Key: "date", Value: bson.D{
+						{Key: "$gte", Value: start.Format("2006-01-02")},
+						{Key: "$lt", Value: end.Format("2006-01-02")},
+					}},
+				}}},
+				{{Key: "$lookup", Value: bson.D{
+					{Key: "from", Value: "categories"},
+					{Key: "let", Value: bson.D{
+						{Key: "catName", Value: "$category"},
+						{Key: "owner", Value: "$owner"},
+					}},
+					{Key: "pipeline", Value: bson.A{
+						bson.M{"$match": bson.M{"$expr": bson.M{"$and": bson.A{
+							bson.M{"$eq": bson.A{"$name", "$$catName"}},
+							bson.M{"$eq": bson.A{"$owner", "$$owner"}},
+						}}}},
+						bson.M{"$project": bson.M{"_id": 1, "type": 1}},
+						bson.M{"$limit": 1},
+					}},
+					{Key: "as", Value: "categoryDoc"},
+				}}},
+				{{Key: "$unwind", Value: bson.D{
+					{Key: "path", Value: "$categoryDoc"},
+					{Key: "preserveNullAndEmptyArrays", Value: true},
+				}}},
+				{{Key: "$match", Value: bson.D{
+					{Key: "categoryDoc.type", Value: bson.D{{Key: "$ne", Value: "income"}}},
+				}}},
+				{{Key: "$group", Value: bson.D{
+					{Key: "_id", Value: "$category"},
+					{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}},
+				}}},
 		}
 
 		cursor, err := collection.Aggregate(ctx, pipeline)
