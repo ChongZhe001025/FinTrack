@@ -43,7 +43,16 @@ docker compose up -d
 ```
 
 
-2. **啟動後端 API**
+2. **建置前端 (Production)**
+```bash
+cd client
+npm install
+npm run build
+
+```
+
+
+3. **啟動後端 API (同時提供前端靜態檔案)**
 ```bash
 cd server
 go run .
@@ -51,20 +60,10 @@ go run .
 ```
 
 
-3. **啟動前端 Web App**
-```bash
-cd client
-npm install
-npm run dev
-
-```
-
-
 
 ### 服務端口 (Ports)
 
-* **Web App**: `http://localhost:5173`
-* **API Server**: `http://localhost:8080`
+* **Web App / API Server**: `http://localhost:8080`
 * **Swagger API Docs**: `http://localhost:8080/swagger/index.html`
 * **Mongo Express (Admin GUI)**: `http://localhost:8081` (帳號/密碼: admin/pass)
 * **MongoDB**: `mongodb://localhost:27017`

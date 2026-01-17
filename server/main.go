@@ -1,12 +1,15 @@
 package main
 
 import (
+	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"server/config"
 	"server/controllers"
 	_ "server/docs"
-	"strings"
-	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -103,5 +106,32 @@ func GinRouter() *gin.Engine {
 		}
 	}
 
+	registerStaticRoutes(r)
+
 	return r
+}
+
+func registerStaticRoutes(r *gin.Engine) {
+	staticDir := "./public"
+	indexPath := filepath.Join(staticDir, "index.html")
+	if _, err := os.Stat(indexPath); err != nil {
+		return
+	}
+
+	r.Static("/assets", filepath.Join(staticDir, "assets"))
+	r.StaticFile("/logo.png", filepath.Join(staticDir, "logo.png"))
+	r.StaticFile("/vite.svg", filepath.Join(staticDir, "vite.svg"))
+
+	r.NoRoute(func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		c.File(indexPath)
+	})
 }
