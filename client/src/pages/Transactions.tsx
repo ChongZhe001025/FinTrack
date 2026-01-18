@@ -4,6 +4,7 @@ import { Loader2, AlertCircle, Edit2, Filter, ArrowUpDown, ArrowUp, ArrowDown, C
 import { useSearchParams } from 'react-router-dom';
 import AddTransactionModal from '../components/AddTransactionModal';
 import clsx from 'clsx';
+import { getSelectedMonth, setSelectedMonth } from '../utils/selectedMonth';
 
 // 1. 引入 DatePicker 相關套件
 import DatePicker, { registerLocale } from "react-datepicker";
@@ -68,7 +69,7 @@ export default function Transactions() {
   const categoryFilter = searchParams.get('category_id') || '';
   const legacyCategoryFilter = searchParams.get('category') || '';
   const monthParam = searchParams.get('month') || '';
-  const [currentMonth, setCurrentMonth] = useState(() => monthParam || formatMonth(new Date()));
+  const [currentMonth, setCurrentMonth] = useState(() => monthParam || getSelectedMonth());
   const maxMonthStart = new Date();
   maxMonthStart.setHours(0, 0, 0, 0);
   maxMonthStart.setDate(1);
@@ -108,9 +109,10 @@ export default function Transactions() {
   }, []);
 
   useEffect(() => {
-    const fallbackMonth = formatMonth(new Date());
+    const fallbackMonth = getSelectedMonth();
     const nextMonth = monthParam || fallbackMonth;
     setCurrentMonth(nextMonth);
+    setSelectedMonth(nextMonth);
 
     const start = new Date(`${nextMonth}-01T00:00:00`);
     const end = new Date(start);
@@ -153,6 +155,7 @@ export default function Transactions() {
         return;
       }
       const nextMonth = formatMonth(date);
+      setSelectedMonth(nextMonth);
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set('month', nextMonth);
       setSearchParams(nextParams);

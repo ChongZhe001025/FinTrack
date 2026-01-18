@@ -7,6 +7,7 @@ import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { zhTW } from 'date-fns/locale';
 import BudgetSection from '../components/BudgetSection';
+import { getSelectedMonth, setSelectedMonth } from '../utils/selectedMonth';
 
 interface DashboardStats {
   total_income: number;
@@ -244,7 +245,7 @@ export default function Dashboard() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [currentMonth, setCurrentMonth] = useState(() => getSelectedMonth());
   const [timeRange, setTimeRange] = useState<TimeRange>('7days');
   const maxMonthStart = new Date();
   maxMonthStart.setHours(0, 0, 0, 0);
@@ -285,7 +286,9 @@ export default function Dashboard() {
     if (date.getTime() > maxMonthStart.getTime()) {
       return;
     }
-    setCurrentMonth(date.toISOString().slice(0, 7));
+    const nextMonth = date.toISOString().slice(0, 7);
+    setSelectedMonth(nextMonth);
+    setCurrentMonth(nextMonth);
   };
   const [selectedYear, selectedMonth] = currentMonth.split('-').map(Number);
   const selectedMonthDate = new Date(selectedYear, selectedMonth - 1, 1);

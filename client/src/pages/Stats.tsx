@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { Loader2, PieChart as PieIcon, ChevronLeft, ChevronRight, BarChart3, CalendarDays, List } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getSelectedMonth, setSelectedMonth } from '../utils/selectedMonth';
 
 interface CategoryStat {
   categoryId?: string;
@@ -61,7 +62,7 @@ export default function Stats() {
   const [isWeeklyLoading, setIsWeeklyLoading] = useState(false);
 
   // 新增：支出占比/明細/對比 的月份（預設當前月份）
-  const [baseMonth, setBaseMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [baseMonth, setBaseMonth] = useState(() => getSelectedMonth());
   const maxMonthStart = new Date();
   maxMonthStart.setHours(0, 0, 0, 0);
   maxMonthStart.setDate(1);
@@ -73,7 +74,9 @@ export default function Stats() {
     if (d.getTime() > maxMonthStart.getTime()) {
       return;
     }
-    setBaseMonth(d.toISOString().slice(0, 7));
+    const nextMonth = d.toISOString().slice(0, 7);
+    setSelectedMonth(nextMonth);
+    setBaseMonth(nextMonth);
   };
 
   const navigate = useNavigate();
