@@ -53,6 +53,8 @@ const formatDate = (date: Date | null) => {
     return localDate.toISOString().split('T')[0];
 };
 
+const formatMonth = (date: Date) => formatDate(date).slice(0, 7);
+
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -66,7 +68,7 @@ export default function Transactions() {
   const categoryFilter = searchParams.get('category_id') || '';
   const legacyCategoryFilter = searchParams.get('category') || '';
   const monthParam = searchParams.get('month') || '';
-  const [currentMonth, setCurrentMonth] = useState(() => monthParam || new Date().toISOString().slice(0, 7));
+  const [currentMonth, setCurrentMonth] = useState(() => monthParam || formatMonth(new Date()));
   const maxMonthStart = new Date();
   maxMonthStart.setHours(0, 0, 0, 0);
   maxMonthStart.setDate(1);
@@ -106,13 +108,11 @@ export default function Transactions() {
   }, []);
 
   useEffect(() => {
-    setCurrentMonth(monthParam || new Date().toISOString().slice(0, 7));
-  }, [monthParam]);
+    const fallbackMonth = formatMonth(new Date());
+    const nextMonth = monthParam || fallbackMonth;
+    setCurrentMonth(nextMonth);
 
-  useEffect(() => {
-    if (!monthParam) return;
-
-    const start = new Date(`${monthParam}-01T00:00:00`);
+    const start = new Date(`${nextMonth}-01T00:00:00`);
     const end = new Date(start);
     end.setMonth(end.getMonth() + 1);
     end.setDate(0); // 當月最後一天
@@ -147,12 +147,12 @@ export default function Transactions() {
   const activeCategoryFilter = categoryFilter || legacyCategoryId;
 
   const changeMonth = (offset: number) => {
-      const date = new Date(currentMonth + "-01");
+      const date = new Date(`${currentMonth}-01T00:00:00`);
       date.setMonth(date.getMonth() + offset);
       if (date.getTime() > maxMonthStart.getTime()) {
         return;
       }
-      const nextMonth = date.toISOString().slice(0, 7);
+      const nextMonth = formatMonth(date);
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set('month', nextMonth);
       setSearchParams(nextParams);
