@@ -293,6 +293,19 @@ export default function Dashboard() {
     Number.isInteger(selectedYear) &&
     Number.isInteger(selectedMonth) &&
     selectedMonthDate.getTime() >= maxMonthStart.getTime();
+  const now = new Date();
+  const isCurrentMonth =
+    Number.isInteger(selectedYear) &&
+    Number.isInteger(selectedMonth) &&
+    selectedYear === now.getFullYear() &&
+    selectedMonth === now.getMonth() + 1;
+  const effectiveTimeRange = !isCurrentMonth && timeRange === '7days' ? 'thisMonth' : timeRange;
+
+  useEffect(() => {
+    if (!isCurrentMonth && timeRange === '7days') {
+      setTimeRange('thisMonth');
+    }
+  }, [isCurrentMonth, timeRange]);
 
   const categoryTypeById = useMemo(() => {
     const map = new Map<string, TransactionType>();
@@ -333,17 +346,15 @@ export default function Dashboard() {
     const selectedMonthEndExclusive = new Date(selectedMonthStart);
     selectedMonthEndExclusive.setMonth(selectedMonthEndExclusive.getMonth() + 1);
 
-    const isCurrentMonth = selectedMonthStart.getFullYear() === now.getFullYear() &&
-        selectedMonthStart.getMonth() === now.getMonth();
     const rangeEndExclusive = isCurrentMonth
         ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
         : selectedMonthEndExclusive;
 
     const cutoffDate = new Date(rangeEndExclusive);
     cutoffDate.setHours(0, 0, 0, 0);
-    if (timeRange === '7days') {
+    if (effectiveTimeRange === '7days') {
         cutoffDate.setDate(cutoffDate.getDate() - 7);
-    } else if (timeRange === '30days') {
+    } else if (effectiveTimeRange === '30days') {
         cutoffDate.setDate(cutoffDate.getDate() - 30);
     }
     // 注意：如果是 'custom'，我們會在下面迴圈內直接比較 startStr 和 endStr
@@ -359,9 +370,9 @@ export default function Dashboard() {
         
         let isValid = false;
 
-        if (timeRange === 'thisMonth') {
+        if (effectiveTimeRange === 'thisMonth') {
             isValid = tDate >= selectedMonthStart && tDate < selectedMonthEndExclusive;
-        } else if (timeRange === 'custom') {
+        } else if (effectiveTimeRange === 'custom') {
             // 自訂區間邏輯：比對交易日期是否在 Start 和 End 之間
             isValid = (!startStr || t.date >= startStr) && (!endStr || t.date <= endStr);
         } else {
@@ -382,7 +393,7 @@ export default function Dashboard() {
             amount 
         }))
         .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
-  }, [transactions, categoryTypeById, categoryTypeByName, timeRange, startDate, endDate, currentMonth]); // 注意：這裡要加入 startDate, endDate 到依賴陣列
+  }, [transactions, categoryTypeById, categoryTypeByName, effectiveTimeRange, startDate, endDate, currentMonth, isCurrentMonth]); // 注意：這裡要加入 startDate, endDate 到依賴陣列
 
   const derivedStats = useMemo(() => {
     let totalIncome = 0;
@@ -518,23 +529,35 @@ export default function Dashboard() {
             <div className="flex flex-col items-end gap-2 w-full md:w-auto">
                 <div className="flex bg-gray-100 p-1 rounded-lg w-full md:w-auto">
                     {[
-                        { key: '7days', label: '近 7 天' },
+                        { key: '7days', label: '近 7 天', disabled: !isCurrentMonth },
                         { key: 'thisMonth', label: '本月' },
                         { key: 'custom', label: '自訂' }, // 新增按鈕
-                    ].map((item) => (
-                        <button
-                            key={item.key}
-                            onClick={() => setTimeRange(item.key as TimeRange)}
-                            className={clsx(
-                                "flex-1 md:flex-none px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all whitespace-nowrap",
-                                timeRange === item.key 
-                                    ? "bg-white text-indigo-600 shadow-sm" 
-                                    : "text-gray-500 hover:text-gray-700"
-                            )}
-                        >
-                            {item.label}
-                        </button>
-                    ))}
+                    ].map((item) => {
+                        const isDisabled = Boolean(item.disabled);
+                        const isActive = effectiveTimeRange === item.key;
+                        return (
+                            <button
+                                key={item.key}
+                                onClick={() => {
+                                    if (!isDisabled) {
+                                        setTimeRange(item.key as TimeRange);
+                                    }
+                                }}
+                                disabled={isDisabled}
+                                title={isDisabled ? '近 7 天僅支援當前月份' : undefined}
+                                className={clsx(
+                                    "flex-1 md:flex-none px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all whitespace-nowrap",
+                                    isActive
+                                        ? "bg-white text-indigo-600 shadow-sm"
+                                        : isDisabled
+                                            ? "text-gray-400 cursor-not-allowed"
+                                            : "text-gray-500 hover:text-gray-700"
+                                )}
+                            >
+                                {item.label}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 {/* 6. 自訂日期的輸入框 (只有選中 'custom' 時才顯示) */}
