@@ -18,10 +18,14 @@ interface DashboardStats {
   month?: string;
 }
 
+type TransactionType = 'income' | 'expense';
+
 interface Transaction {
   amount: number;
   date: string;
-  category_id: string;
+  category_id?: string;
+  category?: string | null;
+  type?: TransactionType;
 }
 
 interface ChartData {
@@ -32,23 +36,158 @@ interface ChartData {
 
 interface Category {
   id: string;
-  type: 'income' | 'expense';
+  name?: string;
+  type: TransactionType;
 }
 
-const normalizeTransactions = (value: unknown): Transaction[] => {
-  if (Array.isArray(value)) {
-    return value as Transaction[];
+const normalizeObjectId = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object') {
+    const record = value as { $oid?: string; id?: string; _id?: string };
+    if (typeof record.$oid === 'string') return record.$oid;
+    if (typeof record.id === 'string') return record.id;
+    if (typeof record._id === 'string') return record._id;
+  }
+  return '';
+};
+
+const normalizeAmount = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeDateString = (value: unknown): string => {
+  if (value instanceof Date) {
+    const offset = value.getTimezoneOffset();
+    const localDate = new Date(value.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
   }
   if (value && typeof value === 'object') {
-    const record = value as { data?: unknown; transactions?: unknown };
-    if (Array.isArray(record.data)) {
-      return record.data as Transaction[];
+    const record = value as { $date?: string | { $numberLong?: string } };
+    if (typeof record.$date === 'string') {
+      return normalizeDateString(record.$date);
     }
-    if (Array.isArray(record.transactions)) {
-      return record.transactions as Transaction[];
+    if (record.$date && typeof record.$date === 'object') {
+      const millis = Number(record.$date.$numberLong);
+      if (Number.isFinite(millis)) {
+        return normalizeDateString(new Date(millis));
+      }
     }
   }
-  return [];
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const offset = parsed.getTimezoneOffset();
+  const localDate = new Date(parsed.getTime() - (offset * 60 * 1000));
+  return localDate.toISOString().split('T')[0];
+};
+
+const normalizeTransactionType = (value: unknown): TransactionType | undefined => {
+  if (value === 'income' || value === 'expense') return value;
+  if (typeof value === 'string') {
+    const lowered = value.toLowerCase();
+    if (lowered === 'income' || lowered === 'expense') {
+      return lowered as TransactionType;
+    }
+  }
+  return undefined;
+};
+
+const normalizeTransactions = (value: unknown): Transaction[] => {
+  let raw: unknown[] = [];
+  if (Array.isArray(value)) {
+    raw = value;
+  } else if (value && typeof value === 'object') {
+    const record = value as { data?: unknown; transactions?: unknown };
+    if (Array.isArray(record.data)) {
+      raw = record.data;
+    } else if (Array.isArray(record.transactions)) {
+      raw = record.transactions;
+    }
+  }
+
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const record = item as Record<string, unknown>;
+      const date = normalizeDateString(record.date);
+      if (!date) return null;
+      const amount = normalizeAmount(record.amount);
+      const categoryId = normalizeObjectId(record.category_id ?? record.categoryId);
+      const category = typeof record.category === 'string' ? record.category : undefined;
+      const type = normalizeTransactionType(record.type);
+      const result: Transaction = { amount, date };
+      if (categoryId) {
+        result.category_id = categoryId;
+      }
+      if (category) {
+        result.category = category;
+      }
+      if (type) {
+        result.type = type;
+      }
+      return result;
+    })
+    .filter((item): item is Transaction => item !== null);
+};
+
+const normalizeCategories = (value: unknown): Category[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const record = item as Record<string, unknown>;
+      const id = normalizeObjectId(record.id ?? record._id);
+      const type = normalizeTransactionType(record.type);
+      if (!id || !type) return null;
+      const name = typeof record.name === 'string' ? record.name : undefined;
+      const result: Category = { id, type };
+      if (name) {
+        result.name = name;
+      }
+      return result;
+    })
+    .filter((item): item is Category => item !== null);
+};
+
+const normalizeStats = (value: unknown): DashboardStats => {
+  const fallback = { total_income: 0, total_expense: 0, balance: 0 };
+  if (!value || typeof value !== 'object') return fallback;
+  const record = value as Record<string, unknown>;
+  const payload =
+    record.data && typeof record.data === 'object'
+      ? (record.data as Record<string, unknown>)
+      : record;
+
+  return {
+    total_income: normalizeAmount(payload.total_income),
+    total_expense: normalizeAmount(payload.total_expense),
+    balance: normalizeAmount(payload.balance),
+    income_trend: typeof payload.income_trend === 'number' ? payload.income_trend : undefined,
+    expense_trend: typeof payload.expense_trend === 'number' ? payload.expense_trend : undefined,
+    balance_trend: typeof payload.balance_trend === 'number' ? payload.balance_trend : undefined,
+    month: typeof payload.month === 'string' ? payload.month : undefined,
+  };
+};
+
+const resolveTransactionType = (
+  transaction: Transaction,
+  typeById: Map<string, TransactionType>,
+  typeByName: Map<string, TransactionType>
+): TransactionType | undefined => {
+  if (transaction.type) return transaction.type;
+  if (transaction.category_id) {
+    const type = typeById.get(transaction.category_id);
+    if (type) return type;
+  }
+  if (transaction.category) {
+    const type = typeByName.get(transaction.category);
+    if (type) return type;
+  }
+  return undefined;
 };
 
 // 註冊繁體中文語系
@@ -124,13 +263,13 @@ export default function Dashboard() {
             axios.get('/api/v1/transactions'),
             axios.get('/api/v1/categories')
         ]);
-        setStats(statsRes.data);
+        setStats(normalizeStats(statsRes.data));
         const normalizedTransactions = normalizeTransactions(transRes.data);
         if (normalizedTransactions.length === 0 && !Array.isArray(transRes.data)) {
           console.warn('Unexpected transactions response:', transRes.data);
         }
         setTransactions(normalizedTransactions);
-        setCategories(catRes.data || []);
+        setCategories(normalizeCategories(catRes.data));
       } catch (error) {
         console.error("無法取得 Dashboard 資料:", error);
       } finally {
@@ -156,9 +295,21 @@ export default function Dashboard() {
     selectedMonthDate.getTime() >= maxMonthStart.getTime();
 
   const categoryTypeById = useMemo(() => {
-    const map = new Map<string, 'income' | 'expense'>();
+    const map = new Map<string, TransactionType>();
     categories.forEach((category) => {
-      map.set(category.id, category.type);
+      if (category.id) {
+        map.set(category.id, category.type);
+      }
+    });
+    return map;
+  }, [categories]);
+
+  const categoryTypeByName = useMemo(() => {
+    const map = new Map<string, TransactionType>();
+    categories.forEach((category) => {
+      if (category.name) {
+        map.set(category.name, category.type);
+      }
     });
     return map;
   }, [categories]);
@@ -198,27 +349,29 @@ export default function Dashboard() {
     // 注意：如果是 'custom'，我們會在下面迴圈內直接比較 startStr 和 endStr
 
     transactions.forEach(t => {
-        if (categoryTypeById.get(t.category_id) === 'expense') {
-            const tDate = new Date(t.date);
-            // 清除時分秒，確保只比對日期
-            tDate.setHours(0, 0, 0, 0);
-            
-            let isValid = false;
+        if (resolveTransactionType(t, categoryTypeById, categoryTypeByName) !== 'expense') {
+            return;
+        }
+        const tDate = new Date(t.date);
+        if (Number.isNaN(tDate.getTime())) return;
+        // 清除時分秒，確保只比對日期
+        tDate.setHours(0, 0, 0, 0);
+        
+        let isValid = false;
 
-            if (timeRange === 'thisMonth') {
-                isValid = tDate >= selectedMonthStart && tDate < selectedMonthEndExclusive;
-            } else if (timeRange === 'custom') {
-                // 自訂區間邏輯：比對交易日期是否在 Start 和 End 之間
-                isValid = (!startStr || t.date >= startStr) && (!endStr || t.date <= endStr);
-            } else {
-                // 7天 或 30天
-                isValid = tDate >= cutoffDate && tDate < rangeEndExclusive;
-            }
+        if (timeRange === 'thisMonth') {
+            isValid = tDate >= selectedMonthStart && tDate < selectedMonthEndExclusive;
+        } else if (timeRange === 'custom') {
+            // 自訂區間邏輯：比對交易日期是否在 Start 和 End 之間
+            isValid = (!startStr || t.date >= startStr) && (!endStr || t.date <= endStr);
+        } else {
+            // 7天 或 30天
+            isValid = tDate >= cutoffDate && tDate < rangeEndExclusive;
+        }
 
-            if (isValid) {
-                const current = dailyExpenses.get(t.date) || 0;
-                dailyExpenses.set(t.date, current + t.amount);
-            }
+        if (isValid) {
+            const current = dailyExpenses.get(t.date) || 0;
+            dailyExpenses.set(t.date, current + t.amount);
         }
     });
 
@@ -229,7 +382,44 @@ export default function Dashboard() {
             amount 
         }))
         .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
-  }, [transactions, categoryTypeById, timeRange, startDate, endDate, currentMonth]); // 注意：這裡要加入 startDate, endDate 到依賴陣列
+  }, [transactions, categoryTypeById, categoryTypeByName, timeRange, startDate, endDate, currentMonth]); // 注意：這裡要加入 startDate, endDate 到依賴陣列
+
+  const derivedStats = useMemo(() => {
+    let totalIncome = 0;
+    let totalExpense = 0;
+    let matchedCount = 0;
+
+    transactions.forEach((transaction) => {
+      const dateKey = transaction.date.slice(0, 7);
+      if (dateKey !== currentMonth) return;
+      const type = resolveTransactionType(transaction, categoryTypeById, categoryTypeByName);
+      if (!type) return;
+      matchedCount += 1;
+      if (type === 'income') {
+        totalIncome += transaction.amount;
+      } else {
+        totalExpense += transaction.amount;
+      }
+    });
+
+    return {
+      total_income: totalIncome,
+      total_expense: totalExpense,
+      balance: totalIncome - totalExpense,
+      matchedCount,
+    };
+  }, [transactions, currentMonth, categoryTypeById, categoryTypeByName]);
+
+  const displayStats = useMemo<DashboardStats>(() => {
+    if (derivedStats.matchedCount > 0) {
+      return {
+        total_income: derivedStats.total_income,
+        total_expense: derivedStats.total_expense,
+        balance: derivedStats.balance,
+      };
+    }
+    return stats;
+  }, [stats, derivedStats]);
 
   // 4. 自訂 DatePicker 的 Trigger 按鈕元件
   // 使用 forwardRef 讓 DatePicker 可以綁定點擊事件
@@ -304,9 +494,9 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard title="月收入" amount={`NT$ ${stats.total_income.toLocaleString()}`} type="income" />
-        <StatCard title="月支出" amount={`NT$ ${stats.total_expense.toLocaleString()}`} type="expense" />
-        <StatCard title="月結餘" amount={`NT$ ${stats.balance.toLocaleString()}`} type="balance" />
+        <StatCard title="月收入" amount={`NT$ ${displayStats.total_income.toLocaleString()}`} type="income" />
+        <StatCard title="月支出" amount={`NT$ ${displayStats.total_expense.toLocaleString()}`} type="expense" />
+        <StatCard title="月結餘" amount={`NT$ ${displayStats.balance.toLocaleString()}`} type="balance" />
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
