@@ -80,6 +80,7 @@ export default function Transactions() {
 
   // ✨ 控制快速選單開關
   const [showQuickMenu, setShowQuickMenu] = useState(false);
+  const [noteQuery, setNoteQuery] = useState('');
 
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
 
@@ -206,6 +207,10 @@ export default function Transactions() {
       if (activeCategoryFilter) {
           data = data.filter(t => t.category_id === activeCategoryFilter);
       }
+      if (noteQuery.trim()) {
+          const keyword = noteQuery.trim().toLowerCase();
+          data = data.filter(t => (t.note || '').toLowerCase().includes(keyword));
+      }
 
       if (startDate) {
           const startStr = formatDate(startDate);
@@ -236,7 +241,23 @@ export default function Transactions() {
       });
 
       return data;
-  }, [transactions, activeCategoryFilter, startDate, endDate, sortConfig, getCategoryName]);
+  }, [transactions, activeCategoryFilter, noteQuery, startDate, endDate, sortConfig, getCategoryName]);
+
+  const filteredTotals = useMemo(() => {
+      return processedTransactions.reduce(
+          (acc, item) => {
+              const type = getCategoryType(item.category_id);
+              if (type === 'income') {
+                  acc.income += item.amount;
+              } else {
+                  acc.expense += item.amount;
+              }
+              acc.net = acc.income - acc.expense;
+              return acc;
+          },
+          { income: 0, expense: 0, net: 0 }
+      );
+  }, [processedTransactions, getCategoryType]);
 
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
       if (sortConfig.key !== columnKey) return <ArrowUpDown size={14} className="text-gray-300 ml-1" />;
@@ -374,6 +395,35 @@ export default function Transactions() {
                 />
             </div>
 
+            {/* 備註搜尋 */}
+            <div className="w-full md:w-56 relative shrink-0">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                    <List size={16} />
+                </div>
+                <input
+                    value={noteQuery}
+                    onChange={(e) => setNoteQuery(e.target.value)}
+                    placeholder="搜尋備註..."
+                    className={clsx(
+                        "w-full pl-10 pr-10 py-2.5 bg-white border rounded-lg text-sm font-medium transition-all shadow-sm",
+                        "focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400",
+                        noteQuery.trim()
+                            ? "border-indigo-200 text-indigo-700 bg-indigo-50/50"
+                            : "border-gray-200 text-gray-600 hover:border-gray-300"
+                    )}
+                />
+                {noteQuery && (
+                    <button
+                        type="button"
+                        onClick={() => setNoteQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        title="清除備註搜尋"
+                    >
+                        <X size={14} />
+                    </button>
+                )}
+            </div>
+
             {/* 類別篩選器 */}
             <div className="w-full md:w-48 relative shrink-0">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
@@ -421,11 +471,12 @@ export default function Transactions() {
           <div className="p-12 text-center text-gray-400 flex flex-col items-center gap-2">
              <Filter className="opacity-20" size={48} />
              <p>沒有符合篩選條件的交易紀錄</p>
-             {(activeCategoryFilter || startDate || endDate) && (
+             {(activeCategoryFilter || startDate || endDate || noteQuery.trim()) && (
                 <button 
                     onClick={() => {
                         setSearchParams({});
                         setDateRange([null, null]);
+                        setNoteQuery('');
                     }}
                     className="text-sm text-indigo-600 hover:underline"
                 >
@@ -434,6 +485,22 @@ export default function Transactions() {
              )}
           </div>
         ) : (
+          <>
+            <div className="px-4 md:px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+              <span className="text-gray-500 font-medium">篩選合計</span>
+              <span className="text-green-600 font-semibold">
+                收入 NT$ {filteredTotals.income.toLocaleString()}
+              </span>
+              <span className="text-gray-900 font-semibold">
+                支出 NT$ {filteredTotals.expense.toLocaleString()}
+              </span>
+              <span className={clsx(
+                "font-semibold",
+                filteredTotals.net >= 0 ? "text-emerald-600" : "text-red-500"
+              )}>
+                淨額 NT$ {filteredTotals.net.toLocaleString()}
+              </span>
+            </div>
           <table className="w-full text-left min-w-[350px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
@@ -502,6 +569,7 @@ export default function Transactions() {
               ))}
             </tbody>
           </table>
+          </>
         )}
       </div>
 
