@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, LineChart, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -194,7 +194,7 @@ export default function ReportsYearly() {
     <div className="space-y-6 pb-20 pt-4">
       <header className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2">
-          <BarChart3 className="text-indigo-600" />
+          <LineChart className="text-indigo-600" />
           <h2 className="text-2xl font-bold text-gray-800">年度報表</h2>
         </div>
         <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg">
