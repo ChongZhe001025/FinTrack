@@ -33,10 +33,30 @@ interface TransactionModalProps {
   editData?: Transaction; 
 }
 
+const LAST_SELECTED_DATE_KEY = 'fintrack:lastSelectedTransactionDate';
+
+const getDefaultDate = () => {
+  if (typeof window === 'undefined') {
+    return new Date().toISOString().split('T')[0];
+  }
+  const saved = localStorage.getItem(LAST_SELECTED_DATE_KEY);
+  if (saved) {
+    return saved;
+  }
+  return new Date().toISOString().split('T')[0];
+};
+
+const setLastSelectedDate = (value: string) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  localStorage.setItem(LAST_SELECTED_DATE_KEY, value);
+};
+
 export default function TransactionModal({ isOpen, onClose, editData }: TransactionModalProps) {
   const { register, handleSubmit, watch, setValue, reset, getValues, formState: { errors } } = useForm<TransactionFormInputs>({
     defaultValues: {
-      date: new Date().toISOString().split('T')[0],
+      date: getDefaultDate(),
       category_id: ''
     }
   });
@@ -65,7 +85,7 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
       } else {
         // 新增模式：重置表單
         reset({
-            date: new Date().toISOString().split('T')[0],
+            date: getDefaultDate(),
             category_id: '',
             amount: undefined,
             note: ''
@@ -265,7 +285,14 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
                 <label className="block text-sm font-medium text-gray-700 mb-1">日期</label>
                 <input
                   type="date"
-                  {...register('date', { required: true })}
+                  {...register('date', {
+                    required: true,
+                    onChange: (event) => {
+                      if (!editData) {
+                        setLastSelectedDate(event.target.value);
+                      }
+                    },
+                  })}
                   className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-indigo-400"
                 />
               </div>
