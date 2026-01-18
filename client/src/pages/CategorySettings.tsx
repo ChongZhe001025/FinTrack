@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { Trash2, Edit2, Plus, Check, X, Tag, GripVertical } from 'lucide-react';
 import clsx from 'clsx';
@@ -27,6 +27,7 @@ export default function CategorySettings() {
   // 拖拉排序狀態
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragPointerIdRef = useRef<number | null>(null);
 
   const fetchCategories = async () => {
     try {
@@ -94,30 +95,16 @@ export default function CategorySettings() {
     }
   };
 
-  const handleDragStart = (event: React.DragEvent<HTMLButtonElement>, id: string) => {
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', id);
-    setDraggingId(id);
+  const resetDragState = () => {
+    setDraggingId(null);
+    setDragOverId(null);
+    dragPointerIdRef.current = null;
   };
 
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>, id: string) => {
-    if (!draggingId || draggingId === id) return;
-    event.preventDefault();
-    setDragOverId(id);
-  };
-
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>, id: string) => {
-    event.preventDefault();
-    if (!draggingId || draggingId === id) {
-      setDragOverId(null);
-      return;
-    }
-
-    const fromIndex = categories.findIndex((cat) => cat.id === draggingId);
-    const toIndex = categories.findIndex((cat) => cat.id === id);
+  const applyReorder = (fromId: string, toId: string) => {
+    const fromIndex = categories.findIndex((cat) => cat.id === fromId);
+    const toIndex = categories.findIndex((cat) => cat.id === toId);
     if (fromIndex === -1 || toIndex === -1) {
-      setDragOverId(null);
-      setDraggingId(null);
       return;
     }
 
@@ -137,14 +124,77 @@ export default function CategorySettings() {
       .filter((item): item is { id: string; order: number } => item !== null);
 
     setCategories(nextWithOrder);
-    setDragOverId(null);
-    setDraggingId(null);
     persistOrder(updates);
   };
 
+  const handleDragStart = (event: React.DragEvent<HTMLButtonElement>, id: string) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', id);
+    setDraggingId(id);
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>, id: string) => {
+    if (!draggingId || draggingId === id) return;
+    event.preventDefault();
+    setDragOverId(id);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>, id: string) => {
+    event.preventDefault();
+    if (!draggingId || draggingId === id) {
+      setDragOverId(null);
+      return;
+    }
+    applyReorder(draggingId, id);
+    resetDragState();
+  };
+
   const handleDragEnd = () => {
-    setDraggingId(null);
-    setDragOverId(null);
+    resetDragState();
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
+    if (event.pointerType !== 'touch' || editingId === id) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragPointerIdRef.current = event.pointerId;
+    setDraggingId(id);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType !== 'touch') return;
+    if (!draggingId || dragPointerIdRef.current !== event.pointerId) return;
+    event.preventDefault();
+    const target = document.elementFromPoint(event.clientX, event.clientY);
+    const row = target?.closest<HTMLElement>('[data-category-id]');
+    const overId = row?.dataset.categoryId;
+    if (!overId) {
+      if (dragOverId) setDragOverId(null);
+      return;
+    }
+    if (overId === draggingId) {
+      if (dragOverId) setDragOverId(null);
+      return;
+    }
+    if (overId !== dragOverId) {
+      setDragOverId(overId);
+    }
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType !== 'touch') return;
+    if (dragPointerIdRef.current !== event.pointerId) return;
+    event.preventDefault();
+    if (draggingId && dragOverId && draggingId !== dragOverId) {
+      applyReorder(draggingId, dragOverId);
+    }
+    resetDragState();
+  };
+
+  const handlePointerCancel = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType !== 'touch') return;
+    if (dragPointerIdRef.current !== event.pointerId) return;
+    resetDragState();
   };
 
   // 儲存新增
@@ -216,6 +266,7 @@ export default function CategorySettings() {
               return (
                 <div
                   key={cat.id}
+                  data-category-id={cat.id}
                   onDragOver={(event) => handleDragOver(event, cat.id)}
                   onDrop={(event) => handleDrop(event, cat.id)}
                   className={clsx(
@@ -230,8 +281,12 @@ export default function CategorySettings() {
                     draggable={!isEditing}
                     onDragStart={(event) => handleDragStart(event, cat.id)}
                     onDragEnd={handleDragEnd}
+                    onPointerDown={(event) => handlePointerDown(event, cat.id)}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerCancel}
                     className={clsx(
-                      "p-1 rounded text-gray-300",
+                      "p-1 rounded text-gray-300 touch-none",
                       isEditing ? "cursor-not-allowed" : "cursor-grab hover:text-gray-500"
                     )}
                   >
@@ -239,27 +294,31 @@ export default function CategorySettings() {
                   </button>
 
                   {isEditing ? (
-                    <div className="flex items-center gap-3 w-full">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0">
                       <input
                         type="text"
                         value={editName}
                         onChange={e => setEditName(e.target.value)}
-                        className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        className="w-full sm:flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
                       />
                       <select
                         value={editType}
                         onChange={(e) => setEditType(e.target.value as 'income' | 'expense')}
-                        className="p-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        className="w-full sm:w-auto p-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
                       >
                         <option value="expense">支出</option>
                         <option value="income">收入</option>
                       </select>
-                      <button onClick={saveEdit} className="p-2 text-green-600 hover:bg-green-50 rounded-lg">
-                        <Check size={18} />
-                      </button>
-                      <button onClick={() => setEditingId(null)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg">
-                        <X size={18} />
-                      </button>
+                      </div>
+                      <div className="flex items-center gap-2 justify-end sm:justify-start">
+                        <button onClick={saveEdit} className="p-2 text-green-600 hover:bg-green-50 rounded-lg">
+                          <Check size={18} />
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg">
+                          <X size={18} />
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <>

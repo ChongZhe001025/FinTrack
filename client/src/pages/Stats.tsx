@@ -173,13 +173,13 @@ export default function Stats() {
 
       {/* Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-100 shadow-sm min-h-[350px] flex flex-col items-center justify-center">
+        <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-100 shadow-sm overflow-y-auto max-h-[400px] flex flex-col">
             <div className="flex items-center gap-2 mb-6 w-full">
                 <PieIcon className="text-indigo-600" />
                 <h3 className="text-lg font-bold text-gray-800">支出占比</h3>
             </div>
             {pieData.length > 0 ? (
-                <div className="w-full h-[250px]">
+                <div className="w-full flex-1 min-h-[250px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                     <Pie
@@ -205,7 +205,7 @@ export default function Stats() {
                 </ResponsiveContainer>
                 </div>
             ) : (
-                <div className="text-gray-400">無數據</div>
+                <div className="flex-1 flex items-center justify-center text-gray-400">無數據</div>
             )}
         </div>
 
