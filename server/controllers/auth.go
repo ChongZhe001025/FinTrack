@@ -10,7 +10,7 @@ import (
 var USERS = map[string]string{
 	"chongzhe": "20001025Jonas",
 	"yunchen":  "20000722Jenny",
-	"guest":    "123456Guest",
+	"moon":     "19670706Moon",
 }
 
 const COOKIE_NAME = "fintrack_session"
