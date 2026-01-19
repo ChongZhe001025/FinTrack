@@ -260,23 +260,25 @@ export default function Transactions() {
   }, [processedTransactions, getCategoryType]);
 
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
-      if (sortConfig.key !== columnKey) return <ArrowUpDown size={14} className="text-gray-300 ml-1" />;
+      if (sortConfig.key !== columnKey) return <ArrowUpDown size={14} className="text-gray-300 dark:text-neutral-600 ml-1" />;
       return sortConfig.direction === 'asc' 
-        ? <ArrowUp size={14} className="text-indigo-600 ml-1" /> 
-        : <ArrowDown size={14} className="text-indigo-600 ml-1" />;
+        ? <ArrowUp size={14} className="text-indigo-600 dark:text-neutral-100 ml-1" /> 
+        : <ArrowDown size={14} className="text-indigo-600 dark:text-neutral-100 ml-1" />;
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const CustomDateInput = forwardRef(({ value, onClick }: any, ref: any) => (
     <div 
         className={clsx(
-            "flex items-center gap-2 bg-white border px-3 py-2 rounded-lg cursor-pointer transition-all w-full md:w-auto min-w-[240px]",
-            value ? "border-indigo-300 text-indigo-700 bg-indigo-50/30" : "border-gray-200 text-gray-500 hover:border-gray-300"
+            "flex items-center gap-2 bg-white dark:bg-neutral-900 border px-3 py-2 rounded-lg cursor-pointer transition-all w-full md:w-auto min-w-[240px]",
+            value
+              ? "border-indigo-300 text-indigo-700 bg-indigo-50/30 dark:border-neutral-600 dark:text-neutral-100 dark:bg-neutral-800"
+              : "border-gray-200 text-gray-500 hover:border-gray-300 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-600"
         )}
         onClick={onClick}
         ref={ref}
     >
-        <Calendar size={18} className={value ? "text-indigo-500" : "text-gray-400"} />
+        <Calendar size={18} className={value ? "text-indigo-500 dark:text-neutral-200" : "text-gray-400 dark:text-neutral-500"} />
         
         <span className="flex-1 text-sm font-medium">
             {value || "選擇日期區間"}
@@ -288,7 +290,7 @@ export default function Transactions() {
                     e.stopPropagation();
                     setDateRange([null, null]);
                 }}
-                className="p-1 hover:bg-black/10 rounded-full text-gray-400 hover:text-gray-600 transition"
+                className="p-1 hover:bg-black/10 rounded-full text-gray-400 hover:text-gray-600 transition dark:text-neutral-500 dark:hover:text-neutral-200 dark:hover:bg-neutral-800"
                 title="清除日期"
             >
                 <X size={14} />
@@ -315,24 +317,24 @@ export default function Transactions() {
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2">
-            <List className="text-indigo-600" />
-            <h2 className="text-2xl font-bold text-gray-800 shrink-0">交易紀錄</h2>
+            <List className="text-indigo-600 dark:text-neutral-200" />
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 shrink-0">交易紀錄</h2>
           </div>
-          <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg">
-            <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
-              <ChevronLeft size={18} className="text-gray-600" />
+          <div className="flex items-center gap-3 bg-gray-50 dark:bg-neutral-900 p-1 rounded-lg">
+            <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition dark:hover:bg-neutral-800">
+              <ChevronLeft size={18} className="text-gray-600 dark:text-neutral-300" />
             </button>
-            <span className="font-bold text-gray-700 w-20 text-center">{currentMonth}</span>
+            <span className="font-bold text-gray-700 dark:text-neutral-200 w-20 text-center">{currentMonth}</span>
             <button
               onClick={() => changeMonth(1)}
               disabled={isNextDisabled}
               className={`p-1 rounded transition ${
                 isNextDisabled
                   ? 'opacity-50 cursor-not-allowed'
-                  : 'hover:bg-white hover:shadow-sm'
+                  : 'hover:bg-white hover:shadow-sm dark:hover:bg-neutral-800'
               }`}
             >
-              <ChevronRight size={18} className="text-gray-600" />
+              <ChevronRight size={18} className="text-gray-600 dark:text-neutral-300" />
             </button>
           </div>
         </div>
@@ -346,10 +348,10 @@ export default function Transactions() {
                     <button
                     onClick={() => setShowQuickMenu(!showQuickMenu)}
                     className={clsx(
-                        "p-2.5 rounded-lg border transition-all hover:bg-gray-50",
+                        "p-2.5 rounded-lg border transition-all hover:bg-gray-50 dark:hover:bg-neutral-800",
                         showQuickMenu
-                        ? "border-indigo-300 bg-indigo-50 text-indigo-600"
-                        : "border-gray-200 text-gray-500"
+                        ? "border-indigo-300 bg-indigo-50 text-indigo-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+                        : "border-gray-200 text-gray-500 dark:border-neutral-700 dark:text-neutral-400"
                     )}
                     title="快速選取區間"
                     >
@@ -357,8 +359,8 @@ export default function Transactions() {
                     </button>
 
                     {showQuickMenu && (
-                    <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl py-2 animate-fade-in z-30">
-                        <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 rounded-xl shadow-xl py-2 animate-fade-in z-30">
+                        <div className="px-4 py-2 text-xs font-bold text-gray-400 dark:text-neutral-500 uppercase tracking-wider">
                         快速篩選
                         </div>
                         {QUICK_RANGES.map((range) => {
@@ -371,10 +373,10 @@ export default function Transactions() {
                             <button
                             key={range.days}
                             onClick={() => applyQuickRange(range.days)}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center justify-between group"
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-neutral-200 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 flex items-center justify-between group"
                             >
                             <span>{range.label}</span>
-                            {isSelected && <Check size={14} className="text-indigo-600" />}
+                            {isSelected && <Check size={14} className="text-indigo-600 dark:text-neutral-100" />}
                             </button>
                         );
                         })}
@@ -397,7 +399,7 @@ export default function Transactions() {
 
             {/* 備註搜尋 */}
             <div className="w-full md:w-56 relative shrink-0">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-neutral-500 pointer-events-none">
                     <List size={16} />
                 </div>
                 <input
@@ -405,18 +407,18 @@ export default function Transactions() {
                     onChange={(e) => setNoteQuery(e.target.value)}
                     placeholder="搜尋備註..."
                     className={clsx(
-                        "w-full pl-10 pr-10 py-2.5 bg-white border rounded-lg text-sm font-medium transition-all shadow-sm",
-                        "focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400",
+                        "w-full pl-10 pr-10 py-2.5 bg-white dark:bg-neutral-900 border rounded-lg text-sm font-medium transition-all shadow-sm",
+                        "focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 dark:focus:ring-neutral-700 dark:focus:border-neutral-600",
                         noteQuery.trim()
-                            ? "border-indigo-200 text-indigo-700 bg-indigo-50/50"
-                            : "border-gray-200 text-gray-600 hover:border-gray-300"
+                            ? "border-indigo-200 text-indigo-700 bg-indigo-50/50 dark:border-neutral-600 dark:text-neutral-100 dark:bg-neutral-800"
+                            : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600"
                     )}
                 />
                 {noteQuery && (
                     <button
                         type="button"
                         onClick={() => setNoteQuery('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-neutral-500 dark:hover:text-neutral-300"
                         title="清除備註搜尋"
                     >
                         <X size={14} />
@@ -426,18 +428,18 @@ export default function Transactions() {
 
             {/* 類別篩選器 */}
             <div className="w-full md:w-48 relative shrink-0">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-neutral-500 pointer-events-none">
                     <Filter size={16} />
                 </div>
                 <select
                     value={activeCategoryFilter}
                     onChange={handleFilterChange}
                     className={clsx(
-                        "w-full pl-10 pr-10 py-2.5 bg-white border rounded-lg appearance-none text-sm font-medium transition-all cursor-pointer shadow-sm",
-                        "focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400",
+                        "w-full pl-10 pr-10 py-2.5 bg-white dark:bg-neutral-900 border rounded-lg appearance-none text-sm font-medium transition-all cursor-pointer shadow-sm",
+                        "focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 dark:focus:ring-neutral-700 dark:focus:border-neutral-600",
                         activeCategoryFilter 
-                            ? "border-indigo-200 text-indigo-700 bg-indigo-50/50" 
-                            : "border-gray-200 text-gray-600 hover:border-gray-300"
+                            ? "border-indigo-200 text-indigo-700 bg-indigo-50/50 dark:border-neutral-600 dark:text-neutral-100 dark:bg-neutral-800" 
+                            : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600"
                     )}
                 >
                     <option value="">所有類別</option>
@@ -448,7 +450,7 @@ export default function Transactions() {
                         </option>
                     ))}
                 </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-neutral-500 pointer-events-none">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                 </div>
             </div>
@@ -456,19 +458,19 @@ export default function Transactions() {
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center gap-2 border border-red-100">
+        <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center gap-2 border border-red-100 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/40">
           <AlertCircle size={20} />
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm border border-gray-100 dark:border-neutral-800 overflow-x-auto">
         {isLoading ? (
-          <div className="p-12 flex justify-center items-center text-gray-400">
+          <div className="p-12 flex justify-center items-center text-gray-400 dark:text-neutral-500">
             <Loader2 className="animate-spin mr-2" /> 載入中...
           </div>
         ) : processedTransactions.length === 0 ? (
-          <div className="p-12 text-center text-gray-400 flex flex-col items-center gap-2">
+          <div className="p-12 text-center text-gray-400 dark:text-neutral-500 flex flex-col items-center gap-2">
              <Filter className="opacity-20" size={48} />
              <p>沒有符合篩選條件的交易紀錄</p>
              {(activeCategoryFilter || startDate || endDate || noteQuery.trim()) && (
@@ -478,7 +480,7 @@ export default function Transactions() {
                         setDateRange([null, null]);
                         setNoteQuery('');
                     }}
-                    className="text-sm text-indigo-600 hover:underline"
+                    className="text-sm text-indigo-600 hover:underline dark:text-neutral-200"
                 >
                     清除所有篩選條件
                 </button>
@@ -486,28 +488,28 @@ export default function Transactions() {
           </div>
         ) : (
           <>
-            <div className="px-4 md:px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-              <span className="text-gray-500 font-medium">篩選合計</span>
-              <span className="text-green-600 font-semibold">
+            <div className="px-4 md:px-6 py-3 border-b border-gray-100 dark:border-neutral-800 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+              <span className="text-gray-500 dark:text-neutral-400 font-medium">篩選合計</span>
+              <span className="text-green-600 dark:text-emerald-300 font-semibold">
                 收入 NT$ {filteredTotals.income.toLocaleString()}
               </span>
-              <span className="text-gray-900 font-semibold">
+              <span className="text-gray-900 dark:text-neutral-100 font-semibold">
                 支出 NT$ {filteredTotals.expense.toLocaleString()}
               </span>
               <span className={clsx(
                 "font-semibold",
-                filteredTotals.net >= 0 ? "text-emerald-600" : "text-red-500"
+                filteredTotals.net >= 0 ? "text-emerald-600 dark:text-emerald-300" : "text-red-500 dark:text-red-300"
               )}>
                 淨額 NT$ {filteredTotals.net.toLocaleString()}
               </span>
             </div>
           <table className="w-full text-left min-w-[350px]">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="bg-gray-50 dark:bg-neutral-950 border-b border-gray-100 dark:border-neutral-800">
               <tr>
                 <th className="p-0">
                     <button 
                         onClick={() => handleSort('date')}
-                        className="w-full py-4 px-4 md:px-6 flex items-center text-xs md:text-sm font-semibold text-gray-600 hover:bg-gray-50 transition"
+                        className="w-full py-4 px-4 md:px-6 flex items-center text-xs md:text-sm font-semibold text-gray-600 dark:text-neutral-300 hover:bg-gray-50 transition dark:hover:bg-neutral-900"
                     >
                         日期 <SortIcon columnKey="date" />
                     </button>
@@ -516,20 +518,20 @@ export default function Transactions() {
                 <th className="p-0">
                     <button 
                         onClick={() => handleSort('category')}
-                        className="w-full py-4 px-4 md:px-6 flex items-center text-xs md:text-sm font-semibold text-gray-600 hover:bg-gray-50 transition"
+                        className="w-full py-4 px-4 md:px-6 flex items-center text-xs md:text-sm font-semibold text-gray-600 dark:text-neutral-300 hover:bg-gray-50 transition dark:hover:bg-neutral-900"
                     >
                         類別 <SortIcon columnKey="category" />
                     </button>
                 </th>
 
-                <th className="hidden md:table-cell py-4 px-4 md:px-6 text-xs md:text-sm font-semibold text-gray-600 cursor-default">
+                <th className="hidden md:table-cell py-4 px-4 md:px-6 text-xs md:text-sm font-semibold text-gray-600 dark:text-neutral-300 cursor-default">
                     備註
                 </th>
                 
                 <th className="p-0">
                     <button 
                         onClick={() => handleSort('amount')}
-                        className="w-full py-4 px-4 md:px-6 flex items-center justify-end text-xs md:text-sm font-semibold text-gray-600 hover:bg-gray-50 transition"
+                        className="w-full py-4 px-4 md:px-6 flex items-center justify-end text-xs md:text-sm font-semibold text-gray-600 dark:text-neutral-300 hover:bg-gray-50 transition dark:hover:bg-neutral-900"
                     >
                         金額 <SortIcon columnKey="amount" />
                     </button>
@@ -537,32 +539,32 @@ export default function Transactions() {
                 <th className="w-10"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 dark:divide-neutral-800">
               {processedTransactions.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-50 transition group cursor-pointer" onClick={() => handleEditClick(t)}>
-                  <td className="py-4 px-4 md:px-6 text-xs md:text-sm text-gray-600 whitespace-nowrap">{t.date}</td>
+                <tr key={t.id} className="hover:bg-gray-50 transition group cursor-pointer dark:hover:bg-neutral-900" onClick={() => handleEditClick(t)}>
+                  <td className="py-4 px-4 md:px-6 text-xs md:text-sm text-gray-600 dark:text-neutral-300 whitespace-nowrap">{t.date}</td>
                   
                   <td className="py-4 px-4 md:px-6 text-xs md:text-sm">
-                    <span className="px-2 py-1 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium bg-gray-100 text-gray-700">
+                    <span className="px-2 py-1 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium bg-gray-100 text-gray-700 dark:bg-neutral-800 dark:text-neutral-200">
                       {getCategoryName(t.category_id)}
                     </span>
-                    <div className="md:hidden text-[10px] text-gray-400 mt-1 truncate max-w-[80px]">
+                    <div className="md:hidden text-[10px] text-gray-400 dark:text-neutral-500 mt-1 truncate max-w-[80px]">
                         {t.note}
                     </div>
                   </td>
 
-                  <td className="hidden md:table-cell py-4 px-4 md:px-6 text-sm text-gray-800">
-                    {t.note || <span className="text-gray-300">-</span>}
+                  <td className="hidden md:table-cell py-4 px-4 md:px-6 text-sm text-gray-800 dark:text-neutral-200">
+                    {t.note || <span className="text-gray-300 dark:text-neutral-600">-</span>}
                   </td>
 
                   <td className={`py-4 px-4 md:px-6 text-xs md:text-sm font-bold text-right whitespace-nowrap ${
-                    getCategoryType(t.category_id) === 'income' ? 'text-green-600' : 'text-gray-900'
+                    getCategoryType(t.category_id) === 'income' ? 'text-green-600 dark:text-emerald-300' : 'text-gray-900 dark:text-neutral-100'
                   }`}>
                     {getCategoryType(t.category_id) === 'expense' ? '' : '+'} 
                     NT$ {t.amount.toLocaleString()}
                   </td>
                   
-                  <td className="pr-4 text-gray-300 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                  <td className="pr-4 text-gray-300 dark:text-neutral-600 md:opacity-0 group-hover:opacity-100 transition-opacity">
                       <Edit2 size={16} />
                   </td>
                 </tr>

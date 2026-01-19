@@ -1,3 +1,104 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    /* === App base === */
+    --app-bg: #f9fafb;
+    --app-text: #111827;
+
+    /* === Chart tokens (light) === */
+    --chart-text: #6b7280;            /* axis label */
+    --chart-tick: #9ca3af;            /* axis tick */
+    --chart-grid: #f0f0f0;            /* grid line */
+    --chart-tooltip-bg: #ffffff;
+    --chart-tooltip-border: rgba(0, 0, 0, 0.08);
+    --chart-tooltip-text: #111827;
+
+    /* Series colors (light) */
+    --chart-expense: #f97316;         /* orange */
+    --chart-income: #14b8a6;          /* teal */
+    --chart-net: #2563eb;             /* blue */
+    --chart-category: #0ea5e9;         /* sky */
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    --app-bg: #0a0a0a;
+    --app-text: #e5e5e5;
+
+    /* === Chart tokens (dark) === */
+    --chart-text: #a3a3a3;
+    --chart-tick: #a3a3a3;
+    --chart-grid: #262626;
+    --chart-tooltip-bg: #0f0f0f;
+    --chart-tooltip-border: #262626;
+    --chart-tooltip-text: #e5e5e5;
+
+    /* Series colors (dark) - 你想保持彩色也可，這裡我讓它更柔和一點 */
+    --chart-expense: #fb923c;
+    --chart-income: #2dd4bf;
+    --chart-net: #60a5fa;
+    --chart-category: #38bdf8;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+
+  .dark body {
+    @apply bg-neutral-950 text-neutral-100;
+  }
+}
+
+/* === react-datepicker dark theme === */
+.dark .react-datepicker {
+  background-color: #0a0a0a;
+  border-color: #262626;
+  color: #e5e5e5;
+}
+
+.dark .react-datepicker__header {
+  background-color: #111111;
+  border-bottom-color: #262626;
+}
+
+.dark .react-datepicker__current-month,
+.dark .react-datepicker__day-name,
+.dark .react-datepicker__day,
+.dark .react-datepicker__time-name {
+  color: #e5e5e5;
+}
+
+.dark .react-datepicker__day--disabled {
+  color: #525252;
+}
+
+.dark .react-datepicker__day--keyboard-selected,
+.dark .react-datepicker__day--selected {
+  background-color: #404040;
+  color: #f5f5f5;
+}
+
+.dark .react-datepicker__day:hover {
+  background-color: #262626;
+}
+
+.dark .react-datepicker__triangle::before {
+  border-bottom-color: #262626;
+}
+
+.dark .react-datepicker__triangle::after {
+  border-bottom-color: #111111;
+}
+
+/* === recharts tooltip (both modes use vars) === */
+.recharts-default-tooltip {
+  background-color: var(--chart-tooltip-bg);
+  border: 1px solid var(--chart-tooltip-border);
+  color: var(--chart-tooltip-text);
+}

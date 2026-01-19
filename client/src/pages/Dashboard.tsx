@@ -8,6 +8,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { zhTW } from 'date-fns/locale';
 import BudgetSection from '../components/BudgetSection';
 import { getSelectedMonth, setSelectedMonth } from '../utils/selectedMonth';
+import { useTheme } from '../context/ThemeContext';
 
 interface DashboardStats {
   total_income: number;
@@ -211,9 +212,9 @@ type TimeRange = '7days' | '30days' | 'thisMonth' | 'custom';
 
 const StatCard = ({ title, amount, type }: { title: string, amount: string, type: 'income' | 'expense' | 'balance' }) => {
     const colors = {
-        income: "bg-green-50 text-green-600",
-        expense: "bg-red-50 text-red-600",
-        balance: "bg-indigo-50 text-indigo-600"
+        income: "bg-green-50 text-green-600 dark:bg-emerald-950/40 dark:text-emerald-300",
+        expense: "bg-red-50 text-red-600 dark:bg-rose-950/40 dark:text-rose-300",
+        balance: "bg-indigo-50 text-indigo-600 dark:bg-neutral-800 dark:text-neutral-200"
     }
     const icons = {
         income: <TrendingUp size={24} />,
@@ -222,12 +223,12 @@ const StatCard = ({ title, amount, type }: { title: string, amount: string, type
     }
 
     return (
-        <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between transition hover:shadow-md">
+        <div className="bg-white dark:bg-neutral-900 p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm flex items-center justify-between transition hover:shadow-md">
             <div>
-                <p className="text-sm text-gray-500 font-medium">{title}</p>
+                <p className="text-sm text-gray-500 dark:text-neutral-400 font-medium">{title}</p>
                 <h3 className={`text-2xl font-bold mt-1 ${
-                    type === 'income' ? 'text-green-600' : 
-                    type === 'expense' ? 'text-gray-900' : 'text-indigo-600'
+                    type === 'income' ? 'text-green-600 dark:text-emerald-300' : 
+                    type === 'expense' ? 'text-gray-900 dark:text-neutral-100' : 'text-indigo-600 dark:text-neutral-200'
                 }`}>
                     {amount}
                 </h3>
@@ -247,6 +248,18 @@ export default function Dashboard() {
   
   const [currentMonth, setCurrentMonth] = useState(() => getSelectedMonth());
   const [timeRange, setTimeRange] = useState<TimeRange>('7days');
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const axisTickColor = isDark ? '#a3a3a3' : '#9ca3af';
+  const gridStroke = isDark ? '#262626' : '#f0f0f0';
+  const chartAccent = isDark ? '#d4d4d4' : '#4f46e5';
+  const tooltipStyle = {
+    borderRadius: '8px',
+    border: isDark ? '1px solid #262626' : 'none',
+    backgroundColor: isDark ? '#0f0f0f' : '#ffffff',
+    color: isDark ? '#e5e5e5' : '#111827',
+    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+  };
   const maxMonthStart = new Date();
   maxMonthStart.setHours(0, 0, 0, 0);
   maxMonthStart.setDate(1);
@@ -441,13 +454,15 @@ export default function Dashboard() {
   const CustomDateInput = forwardRef(({ value, onClick }: any, ref: any) => (
     <div 
         className={clsx(
-            "flex items-center gap-2 bg-white border px-3 py-2 rounded-lg cursor-pointer transition-all w-full md:w-auto min-w-[240px]",
-            value ? "border-indigo-300 text-indigo-700 bg-indigo-50/30" : "border-gray-200 text-gray-500 hover:border-gray-300"
+            "flex items-center gap-2 bg-white dark:bg-neutral-900 border px-3 py-2 rounded-lg cursor-pointer transition-all w-full md:w-auto min-w-[240px]",
+            value
+              ? "border-indigo-300 text-indigo-700 bg-indigo-50/30 dark:border-neutral-600 dark:text-neutral-100 dark:bg-neutral-800"
+              : "border-gray-200 text-gray-500 hover:border-gray-300 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-600"
         )}
         onClick={onClick}
         ref={ref}
     >
-        <Calendar size={18} className={value ? "text-indigo-500" : "text-gray-400"} />
+        <Calendar size={18} className={value ? "text-indigo-500 dark:text-neutral-200" : "text-gray-400 dark:text-neutral-500"} />
         
         <span className="flex-1 text-sm font-medium">
             {value || "選擇日期區間"}
@@ -459,7 +474,7 @@ export default function Dashboard() {
                     e.stopPropagation();
                     setDateRange([null, null]);
                 }}
-                className="p-1 hover:bg-black/10 rounded-full text-gray-400 hover:text-gray-600 transition"
+                className="p-1 hover:bg-black/10 rounded-full text-gray-400 hover:text-gray-600 transition dark:text-neutral-500 dark:hover:text-neutral-200 dark:hover:bg-neutral-800"
                 title="清除日期"
             >
                 <X size={14} />
@@ -470,7 +485,7 @@ export default function Dashboard() {
 
   if (isLoading) {
       return (
-        <div className="flex h-64 justify-center items-center text-gray-400">
+        <div className="flex h-64 justify-center items-center text-gray-400 dark:text-neutral-500">
             <Loader2 className="animate-spin mr-2" /> 數據載入中...
         </div>
       );
@@ -485,24 +500,24 @@ export default function Dashboard() {
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2">
-          <LayoutDashboard className="text-indigo-600" />
-          <h2 className="text-2xl font-bold text-gray-800 shrink-0">月度概況</h2>
+          <LayoutDashboard className="text-indigo-600 dark:text-neutral-200" />
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 shrink-0">月度概況</h2>
         </div>
-        <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg">
-          <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition">
-            <ChevronLeft size={18} className="text-gray-600" />
+        <div className="flex items-center gap-3 bg-gray-50 dark:bg-neutral-900 p-1 rounded-lg">
+          <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition dark:hover:bg-neutral-800">
+            <ChevronLeft size={18} className="text-gray-600 dark:text-neutral-300" />
           </button>
-          <span className="font-bold text-gray-700 w-20 text-center">{currentMonth}</span>
+          <span className="font-bold text-gray-700 dark:text-neutral-200 w-20 text-center">{currentMonth}</span>
           <button
             onClick={() => changeMonth(1)}
             disabled={isNextDisabled}
             className={`p-1 rounded transition ${
               isNextDisabled
                 ? 'opacity-50 cursor-not-allowed'
-                : 'hover:bg-white hover:shadow-sm'
+                : 'hover:bg-white hover:shadow-sm dark:hover:bg-neutral-800'
             }`}
           >
-            <ChevronRight size={18} className="text-gray-600" />
+            <ChevronRight size={18} className="text-gray-600 dark:text-neutral-300" />
           </button>
         </div>
       </div>
@@ -513,14 +528,14 @@ export default function Dashboard() {
         <StatCard title="月結餘" amount={`NT$ ${displayStats.balance.toLocaleString()}`} type="balance" />
       </div>
 
-      <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+      <div className="bg-white dark:bg-neutral-900 p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm">
         {/* 標題與篩選器區域 - 為了適應手機版，改為 flex-wrap */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-100 flex items-center gap-2">
                 支出趨勢
                 {/* 5. 當選擇自訂時，顯示日期區間 */}
                 {timeRange === 'custom' && (startDate || endDate) && (
-                    <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-2 py-1 rounded-md animate-fade-in">
+                    <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 dark:text-neutral-400 bg-gray-50 dark:bg-neutral-900 px-2 py-1 rounded-md animate-fade-in">
                         <Calendar size={14} />
                         <span>{formatDisplayDate(startDate) || '開始日期'}</span>
                         <span>➔</span>
@@ -530,7 +545,7 @@ export default function Dashboard() {
             </h3>
             
             <div className="flex flex-col items-end gap-2 w-full md:w-auto">
-                <div className="flex bg-gray-100 p-1 rounded-lg w-full md:w-auto">
+                <div className="flex bg-gray-100 dark:bg-neutral-900 p-1 rounded-lg w-full md:w-auto">
                     {[
                         { key: '7days', label: '近 7 天', disabled: !isCurrentMonth },
                         { key: 'thisMonth', label: '本月' },
@@ -551,10 +566,10 @@ export default function Dashboard() {
                                 className={clsx(
                                     "flex-1 md:flex-none px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all whitespace-nowrap",
                                     isActive
-                                        ? "bg-white text-indigo-600 shadow-sm"
+                                        ? "bg-white text-indigo-600 shadow-sm dark:bg-neutral-800 dark:text-neutral-100"
                                         : isDisabled
-                                            ? "text-gray-400 cursor-not-allowed"
-                                            : "text-gray-500 hover:text-gray-700"
+                                            ? "text-gray-400 cursor-not-allowed dark:text-neutral-600"
+                                            : "text-gray-500 hover:text-gray-700 dark:text-neutral-400 dark:hover:text-neutral-200"
                                 )}
                             >
                                 {item.label}
@@ -585,21 +600,21 @@ export default function Dashboard() {
                     <AreaChart data={chartData}>
                         <defs>
                             <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/>
-                                <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                                <stop offset="5%" stopColor={chartAccent} stopOpacity={0.1}/>
+                                <stop offset="95%" stopColor={chartAccent} stopOpacity={0}/>
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridStroke} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: axisTickColor, fontSize: 12}} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: axisTickColor, fontSize: 12}} />
                         <Tooltip 
                             formatter={(value: number | undefined) => `NT$ ${Number(value || 0).toLocaleString()}`}
-                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                            contentStyle={tooltipStyle}
                         />
                         <Area 
                             type="monotone" 
                             dataKey="amount" 
-                            stroke="#4f46e5" 
+                            stroke={chartAccent} 
                             strokeWidth={2} 
                             fillOpacity={1} 
                             fill="url(#colorAmount)" 
@@ -608,7 +623,7 @@ export default function Dashboard() {
                 </ResponsiveContainer>
             </div>
         ) : (
-            <div className="h-64 flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg">
+            <div className="h-64 flex flex-col items-center justify-center text-gray-400 dark:text-neutral-500 bg-gray-50 dark:bg-neutral-900 rounded-lg">
                 <TrendingDown size={32} className="mb-2 opacity-50"/>
                 <p>該區間尚無支出資料</p>
             </div>
