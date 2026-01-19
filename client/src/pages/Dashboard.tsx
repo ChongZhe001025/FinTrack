@@ -211,33 +211,32 @@ const formatDisplayDate = (date: Date | null) => {
 type TimeRange = '7days' | '30days' | 'thisMonth' | 'custom';
 
 const StatCard = ({ title, amount, type }: { title: string, amount: string, type: 'income' | 'expense' | 'balance' }) => {
-    const colors = {
-        income: "bg-green-50 text-green-600 dark:bg-emerald-950/40 dark:text-emerald-300",
-        expense: "bg-red-50 text-red-600 dark:bg-rose-950/40 dark:text-rose-300",
-        balance: "bg-indigo-50 text-indigo-600 dark:bg-neutral-800 dark:text-neutral-200"
-    }
-    const icons = {
-        income: <TrendingUp size={24} />,
-        expense: <TrendingDown size={24} />,
-        balance: <DollarSign size={24} />
-    }
+  const colors = {
+    income: "bg-green-50 text-green-600 dark:bg-emerald-950/40 dark:text-emerald-300",
+    expense: "bg-red-50 text-red-600 dark:bg-rose-950/40 dark:text-rose-300",
+    balance: "bg-indigo-50 text-indigo-600 dark:bg-neutral-800 dark:text-neutral-200"
+  }
+  const icons = {
+    income: <TrendingUp size={24} />,
+    expense: <TrendingDown size={24} />,
+    balance: <DollarSign size={24} />
+  }
 
-    return (
-        <div className="bg-white dark:bg-neutral-900 p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm flex items-center justify-between transition hover:shadow-md">
-            <div>
-                <p className="text-sm text-gray-500 dark:text-neutral-400 font-medium">{title}</p>
-                <h3 className={`text-2xl font-bold mt-1 ${
-                    type === 'income' ? 'text-green-600 dark:text-emerald-300' : 
-                    type === 'expense' ? 'text-gray-900 dark:text-neutral-100' : 'text-indigo-600 dark:text-neutral-200'
-                }`}>
-                    {amount}
-                </h3>
-            </div>
-            <div className={`p-3 rounded-full ${colors[type]}`}>
-                {icons[type]}
-            </div>
-        </div>
-    )
+  return (
+    <div className="bg-white dark:bg-neutral-900 p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm flex items-center justify-between transition hover:shadow-md">
+      <div>
+        <p className="text-sm text-gray-500 dark:text-neutral-400 font-medium">{title}</p>
+        <h3 className={`text-2xl font-bold mt-1 ${type === 'income' ? 'text-green-600 dark:text-emerald-300' :
+            type === 'expense' ? 'text-gray-900 dark:text-neutral-100' : 'text-indigo-600 dark:text-neutral-200'
+          }`}>
+          {amount}
+        </h3>
+      </div>
+      <div className={`p-3 rounded-full ${colors[type]}`}>
+        {icons[type]}
+      </div>
+    </div>
+  )
 }
 
 export default function Dashboard() {
@@ -245,7 +244,7 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const [currentMonth, setCurrentMonth] = useState(() => getSelectedMonth());
   const [timeRange, setTimeRange] = useState<TimeRange>('7days');
   const { theme } = useTheme();
@@ -264,7 +263,7 @@ export default function Dashboard() {
   maxMonthStart.setHours(0, 0, 0, 0);
   maxMonthStart.setDate(1);
   maxMonthStart.setMonth(maxMonthStart.getMonth() + 12);
-  
+
   // 2. 新增：自訂區間的開始與結束日期
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [startDate, endDate] = dateRange;
@@ -273,9 +272,9 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         const [statsRes, transRes, catRes] = await Promise.all([
-            axios.get('/api/v1/stats', { params: { month: currentMonth } }),
-            axios.get('/api/v1/transactions'),
-            axios.get('/api/v1/categories')
+          axios.get('/api/v1/stats', { params: { month: currentMonth } }),
+          axios.get('/api/v1/transactions'),
+          axios.get('/api/v1/categories')
         ]);
         setStats(normalizeStats(statsRes.data));
         const normalizedTransactions = normalizeTransactions(transRes.data);
@@ -355,60 +354,60 @@ export default function Dashboard() {
     const month = Number(monthText);
     const isValidMonth = Number.isInteger(year) && Number.isInteger(month) && month >= 1 && month <= 12;
     const selectedMonthStart = isValidMonth
-        ? new Date(year, month - 1, 1)
-        : new Date(now.getFullYear(), now.getMonth(), 1);
+      ? new Date(year, month - 1, 1)
+      : new Date(now.getFullYear(), now.getMonth(), 1);
     selectedMonthStart.setHours(0, 0, 0, 0);
 
     const selectedMonthEndExclusive = new Date(selectedMonthStart);
     selectedMonthEndExclusive.setMonth(selectedMonthEndExclusive.getMonth() + 1);
 
     const rangeEndExclusive = isCurrentMonth
-        ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-        : selectedMonthEndExclusive;
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+      : selectedMonthEndExclusive;
 
     const cutoffDate = new Date(rangeEndExclusive);
     cutoffDate.setHours(0, 0, 0, 0);
     if (effectiveTimeRange === '7days') {
-        cutoffDate.setDate(cutoffDate.getDate() - 7);
+      cutoffDate.setDate(cutoffDate.getDate() - 7);
     } else if (effectiveTimeRange === '30days') {
-        cutoffDate.setDate(cutoffDate.getDate() - 30);
+      cutoffDate.setDate(cutoffDate.getDate() - 30);
     }
     // 注意：如果是 'custom'，我們會在下面迴圈內直接比較 startStr 和 endStr
 
     transactions.forEach(t => {
-        if (resolveTransactionType(t, categoryTypeById, categoryTypeByName) !== 'expense') {
-            return;
-        }
-        const tDate = new Date(t.date);
-        if (Number.isNaN(tDate.getTime())) return;
-        // 清除時分秒，確保只比對日期
-        tDate.setHours(0, 0, 0, 0);
-        
-        let isValid = false;
+      if (resolveTransactionType(t, categoryTypeById, categoryTypeByName) !== 'expense') {
+        return;
+      }
+      const tDate = new Date(t.date);
+      if (Number.isNaN(tDate.getTime())) return;
+      // 清除時分秒，確保只比對日期
+      tDate.setHours(0, 0, 0, 0);
 
-        if (effectiveTimeRange === 'thisMonth') {
-            isValid = tDate >= selectedMonthStart && tDate < selectedMonthEndExclusive;
-        } else if (effectiveTimeRange === 'custom') {
-            // 自訂區間邏輯：比對交易日期是否在 Start 和 End 之間
-            isValid = (!startStr || t.date >= startStr) && (!endStr || t.date <= endStr);
-        } else {
-            // 7天 或 30天
-            isValid = tDate >= cutoffDate && tDate < rangeEndExclusive;
-        }
+      let isValid = false;
 
-        if (isValid) {
-            const current = dailyExpenses.get(t.date) || 0;
-            dailyExpenses.set(t.date, current + t.amount);
-        }
+      if (effectiveTimeRange === 'thisMonth') {
+        isValid = tDate >= selectedMonthStart && tDate < selectedMonthEndExclusive;
+      } else if (effectiveTimeRange === 'custom') {
+        // 自訂區間邏輯：比對交易日期是否在 Start 和 End 之間
+        isValid = (!startStr || t.date >= startStr) && (!endStr || t.date <= endStr);
+      } else {
+        // 7天 或 30天
+        isValid = tDate >= cutoffDate && tDate < rangeEndExclusive;
+      }
+
+      if (isValid) {
+        const current = dailyExpenses.get(t.date) || 0;
+        dailyExpenses.set(t.date, current + t.amount);
+      }
     });
 
     return Array.from(dailyExpenses.entries())
-        .map(([date, amount]) => ({ 
-            name: date.slice(5),
-            fullDate: date,
-            amount 
-        }))
-        .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
+      .map(([date, amount]) => ({
+        name: date.slice(5),
+        fullDate: date,
+        amount
+      }))
+      .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
   }, [transactions, categoryTypeById, categoryTypeByName, effectiveTimeRange, startDate, endDate, currentMonth, isCurrentMonth]); // 注意：這裡要加入 startDate, endDate 到依賴陣列
 
   const derivedStats = useMemo(() => {
@@ -452,43 +451,43 @@ export default function Dashboard() {
   // 使用 forwardRef 讓 DatePicker 可以綁定點擊事件
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const CustomDateInput = forwardRef(({ value, onClick }: any, ref: any) => (
-    <div 
-        className={clsx(
-            "flex items-center gap-2 bg-white dark:bg-neutral-900 border px-3 py-2 rounded-lg cursor-pointer transition-all w-full md:w-auto min-w-[240px]",
-            value
-              ? "border-indigo-300 text-indigo-700 bg-indigo-50/30 dark:border-neutral-600 dark:text-neutral-100 dark:bg-neutral-800"
-              : "border-gray-200 text-gray-500 hover:border-gray-300 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-600"
-        )}
-        onClick={onClick}
-        ref={ref}
+    <div
+      className={clsx(
+        "flex items-center gap-2 bg-white dark:bg-neutral-900 border px-3 py-2 rounded-lg cursor-pointer transition-all w-full md:w-auto min-w-[240px]",
+        value
+          ? "border-indigo-300 text-indigo-700 bg-indigo-50/30 dark:border-neutral-600 dark:text-neutral-100 dark:bg-neutral-800"
+          : "border-gray-200 text-gray-500 hover:border-gray-300 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-600"
+      )}
+      onClick={onClick}
+      ref={ref}
     >
-        <Calendar size={18} className={value ? "text-indigo-500 dark:text-neutral-200" : "text-gray-400 dark:text-neutral-500"} />
-        
-        <span className="flex-1 text-sm font-medium">
-            {value || "選擇日期區間"}
-        </span>
+      <Calendar size={18} className={value ? "text-indigo-500 dark:text-neutral-200" : "text-gray-400 dark:text-neutral-500"} />
 
-        {value && (
-            <div 
-                onClick={(e) => {
-                    e.stopPropagation();
-                    setDateRange([null, null]);
-                }}
-                className="p-1 hover:bg-black/10 rounded-full text-gray-400 hover:text-gray-600 transition dark:text-neutral-500 dark:hover:text-neutral-200 dark:hover:bg-neutral-800"
-                title="清除日期"
-            >
-                <X size={14} />
-            </div>
-        )}
+      <span className="flex-1 text-sm font-medium">
+        {value || "選擇日期區間"}
+      </span>
+
+      {value && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            setDateRange([null, null]);
+          }}
+          className="p-1 hover:bg-black/10 rounded-full text-gray-400 hover:text-gray-600 transition dark:text-neutral-500 dark:hover:text-neutral-200 dark:hover:bg-neutral-800"
+          title="清除日期"
+        >
+          <X size={14} />
+        </div>
+      )}
     </div>
   ));
 
   if (isLoading) {
-      return (
-        <div className="flex h-64 justify-center items-center text-gray-400 dark:text-neutral-500">
-            <Loader2 className="animate-spin mr-2" /> 數據載入中...
-        </div>
-      );
+    return (
+      <div className="flex h-64 justify-center items-center text-gray-400 dark:text-neutral-500">
+        <Loader2 className="animate-spin mr-2" /> 數據載入中...
+      </div>
+    );
   }
 
   return (
@@ -500,22 +499,21 @@ export default function Dashboard() {
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2">
-          <LayoutDashboard className="text-indigo-600 dark:text-neutral-200" />
+          <LayoutDashboard className="text-indigo-600 dark:text-indigo-300" />
           <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 shrink-0">月度概況</h2>
         </div>
-        <div className="flex items-center gap-3 bg-gray-50 dark:bg-neutral-900 p-1 rounded-lg">
+        <div className="flex items-center gap-3 bg-gray-50 dark:bg-neutral-900 p-1 rounded-lg border border-gray-100 dark:border-neutral-800">
           <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition dark:hover:bg-neutral-800">
             <ChevronLeft size={18} className="text-gray-600 dark:text-neutral-300" />
           </button>
-          <span className="font-bold text-gray-700 dark:text-neutral-200 w-20 text-center">{currentMonth}</span>
+          <span className="font-bold text-gray-700 dark:text-neutral-100 w-20 text-center">{currentMonth}</span>
           <button
             onClick={() => changeMonth(1)}
             disabled={isNextDisabled}
-            className={`p-1 rounded transition ${
-              isNextDisabled
+            className={`p-1 rounded transition ${isNextDisabled
                 ? 'opacity-50 cursor-not-allowed'
                 : 'hover:bg-white hover:shadow-sm dark:hover:bg-neutral-800'
-            }`}
+              }`}
           >
             <ChevronRight size={18} className="text-gray-600 dark:text-neutral-300" />
           </button>
@@ -531,102 +529,102 @@ export default function Dashboard() {
       <div className="bg-white dark:bg-neutral-900 p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm">
         {/* 標題與篩選器區域 - 為了適應手機版，改為 flex-wrap */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-100 flex items-center gap-2">
-                支出趨勢
-                {/* 5. 當選擇自訂時，顯示日期區間 */}
-                {timeRange === 'custom' && (startDate || endDate) && (
-                    <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 dark:text-neutral-400 bg-gray-50 dark:bg-neutral-900 px-2 py-1 rounded-md animate-fade-in">
-                        <Calendar size={14} />
-                        <span>{formatDisplayDate(startDate) || '開始日期'}</span>
-                        <span>➔</span>
-                        <span>{formatDisplayDate(endDate) || '結束日期'}</span>
-                    </div>
-                )}
-            </h3>
-            
-            <div className="flex flex-col items-end gap-2 w-full md:w-auto">
-                <div className="flex bg-gray-100 dark:bg-neutral-900 p-1 rounded-lg w-full md:w-auto">
-                    {[
-                        { key: '7days', label: '近 7 天', disabled: !isCurrentMonth },
-                        { key: 'thisMonth', label: '本月' },
-                        { key: 'custom', label: '自訂' }, // 新增按鈕
-                    ].map((item) => {
-                        const isDisabled = Boolean(item.disabled);
-                        const isActive = effectiveTimeRange === item.key;
-                        return (
-                            <button
-                                key={item.key}
-                                onClick={() => {
-                                    if (!isDisabled) {
-                                        setTimeRange(item.key as TimeRange);
-                                    }
-                                }}
-                                disabled={isDisabled}
-                                title={isDisabled ? '近 7 天僅支援當前月份' : undefined}
-                                className={clsx(
-                                    "flex-1 md:flex-none px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all whitespace-nowrap",
-                                    isActive
-                                        ? "bg-white text-indigo-600 shadow-sm dark:bg-neutral-800 dark:text-neutral-100"
-                                        : isDisabled
-                                            ? "text-gray-400 cursor-not-allowed dark:text-neutral-600"
-                                            : "text-gray-500 hover:text-gray-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-                                )}
-                            >
-                                {item.label}
-                            </button>
-                        );
-                    })}
-                </div>
+          <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-100 flex items-center gap-2">
+            支出趨勢
+            {/* 5. 當選擇自訂時，顯示日期區間 */}
+            {timeRange === 'custom' && (startDate || endDate) && (
+              <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 dark:text-neutral-400 bg-gray-50 dark:bg-neutral-900 px-2 py-1 rounded-md animate-fade-in">
+                <Calendar size={14} />
+                <span>{formatDisplayDate(startDate) || '開始日期'}</span>
+                <span>➔</span>
+                <span>{formatDisplayDate(endDate) || '結束日期'}</span>
+              </div>
+            )}
+          </h3>
 
-                {/* 6. 自訂日期的輸入框 (只有選中 'custom' 時才顯示) */}
-                {timeRange === 'custom' && (
-                    <DatePicker
-                        selectsRange={true}
-                        startDate={startDate}
-                        endDate={endDate}
-                        onChange={(update) => setDateRange(update)}
-                        isClearable={false}
-                        dateFormat="yyyy/MM/dd"
-                        locale="zh-TW"
-                        customInput={<CustomDateInput />}
-                    />
-                )}
+          <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+            <div className="flex bg-gray-100 dark:bg-neutral-900 p-1 rounded-lg w-full md:w-auto">
+              {[
+                { key: '7days', label: '近 7 天', disabled: !isCurrentMonth },
+                { key: 'thisMonth', label: '本月' },
+                { key: 'custom', label: '自訂' }, // 新增按鈕
+              ].map((item) => {
+                const isDisabled = Boolean(item.disabled);
+                const isActive = effectiveTimeRange === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      if (!isDisabled) {
+                        setTimeRange(item.key as TimeRange);
+                      }
+                    }}
+                    disabled={isDisabled}
+                    title={isDisabled ? '近 7 天僅支援當前月份' : undefined}
+                    className={clsx(
+                      "flex-1 md:flex-none px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all whitespace-nowrap",
+                      isActive
+                        ? "bg-white text-indigo-600 shadow-sm dark:bg-neutral-800 dark:text-neutral-100"
+                        : isDisabled
+                          ? "text-gray-400 cursor-not-allowed dark:text-neutral-600"
+                          : "text-gray-500 hover:text-gray-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* 6. 自訂日期的輸入框 (只有選中 'custom' 時才顯示) */}
+            {timeRange === 'custom' && (
+              <DatePicker
+                selectsRange={true}
+                startDate={startDate}
+                endDate={endDate}
+                onChange={(update) => setDateRange(update)}
+                isClearable={false}
+                dateFormat="yyyy/MM/dd"
+                locale="zh-TW"
+                customInput={<CustomDateInput />}
+              />
+            )}
+          </div>
         </div>
-        
+
         {chartData.length > 0 ? (
-            <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                        <defs>
-                            <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={chartAccent} stopOpacity={0.1}/>
-                                <stop offset="95%" stopColor={chartAccent} stopOpacity={0}/>
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridStroke} />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: axisTickColor, fontSize: 12}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill: axisTickColor, fontSize: 12}} />
-                        <Tooltip 
-                            formatter={(value: number | undefined) => `NT$ ${Number(value || 0).toLocaleString()}`}
-                            contentStyle={tooltipStyle}
-                        />
-                        <Area 
-                            type="monotone" 
-                            dataKey="amount" 
-                            stroke={chartAccent} 
-                            strokeWidth={2} 
-                            fillOpacity={1} 
-                            fill="url(#colorAmount)" 
-                        />
-                    </AreaChart>
-                </ResponsiveContainer>
-            </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={chartAccent} stopOpacity={0.1} />
+                    <stop offset="95%" stopColor={chartAccent} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridStroke} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: axisTickColor, fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: axisTickColor, fontSize: 12 }} />
+                <Tooltip
+                  formatter={(value: number | undefined) => `NT$ ${Number(value || 0).toLocaleString()}`}
+                  contentStyle={tooltipStyle}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="amount"
+                  stroke={chartAccent}
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorAmount)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
-            <div className="h-64 flex flex-col items-center justify-center text-gray-400 dark:text-neutral-500 bg-gray-50 dark:bg-neutral-900 rounded-lg">
-                <TrendingDown size={32} className="mb-2 opacity-50"/>
-                <p>該區間尚無支出資料</p>
-            </div>
+          <div className="h-64 flex flex-col items-center justify-center text-gray-400 dark:text-neutral-500 bg-gray-50 dark:bg-neutral-900 rounded-lg">
+            <TrendingDown size={32} className="mb-2 opacity-50" />
+            <p>該區間尚無支出資料</p>
+          </div>
         )}
       </div>
 

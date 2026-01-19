@@ -362,14 +362,14 @@ export default function Transactions() {
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2">
-            <List className="text-indigo-600 dark:text-neutral-200" />
+            <List className="text-indigo-600 dark:text-indigo-300" />
             <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 shrink-0">交易紀錄</h2>
           </div>
-          <div className="flex items-center gap-3 bg-gray-50 dark:bg-neutral-900 p-1 rounded-lg">
+          <div className="flex items-center gap-3 bg-gray-50 dark:bg-neutral-900 p-1 rounded-lg border border-gray-100 dark:border-neutral-800">
             <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-white hover:shadow-sm rounded transition dark:hover:bg-neutral-800">
               <ChevronLeft size={18} className="text-gray-600 dark:text-neutral-300" />
             </button>
-            <span className="font-bold text-gray-700 dark:text-neutral-200 w-20 text-center">{currentMonth}</span>
+            <span className="font-bold text-gray-700 dark:text-neutral-100 w-20 text-center">{currentMonth}</span>
             <button
               onClick={() => changeMonth(1)}
               disabled={isNextDisabled}

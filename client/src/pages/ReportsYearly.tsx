@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/static-components */
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, LineChart, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, LineChart, ChevronLeft, ChevronRight, Wallet, Calendar, ArrowUpDown, TrendingUp } from 'lucide-react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -130,16 +130,16 @@ export default function ReportsYearly() {
     const merged =
       restTotal > 0
         ? [
-            ...top,
-            {
-              categoryId: 'other',
-              categoryName: '其他',
-              total: restTotal,
-              percent: restPercent,
-              count: restCount,
-              avgMonthly: restAvg,
-            },
-          ]
+          ...top,
+          {
+            categoryId: 'other',
+            categoryName: '其他',
+            total: restTotal,
+            percent: restPercent,
+            count: restCount,
+            avgMonthly: restAvg,
+          },
+        ]
         : top;
 
     return merged.map((item) => ({
@@ -216,32 +216,31 @@ export default function ReportsYearly() {
 
   return (
     <div className="space-y-6 pb-20 pt-4">
-      <header className="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2">
-          <LineChart className="text-indigo-600 dark:text-neutral-200" />
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100">年度報表</h2>
+          <LineChart className="text-indigo-600 dark:text-indigo-300" />
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 shrink-0">年度報表</h2>
         </div>
-        <div className="flex items-center gap-3 bg-gray-50 dark:bg-neutral-900 p-1 rounded-lg">
+        <div className="flex items-center gap-3 bg-gray-50 dark:bg-neutral-900 p-1 rounded-lg border border-gray-100 dark:border-neutral-800">
           <button
             onClick={() => changeYear(-1)}
             className="p-1 hover:bg-white hover:shadow-sm rounded transition dark:hover:bg-neutral-800"
           >
             <ChevronLeft size={18} className="text-gray-600 dark:text-neutral-300" />
           </button>
-          <span className="font-bold text-gray-700 dark:text-neutral-200 w-16 text-center">{year}</span>
+          <span className="font-bold text-gray-700 dark:text-neutral-100 w-20 text-center">{year}</span>
           <button
             onClick={() => changeYear(1)}
             disabled={year >= currentYear}
-            className={`p-1 rounded transition ${
-              year >= currentYear
-                ? 'opacity-50 cursor-not-allowed'
-                : 'hover:bg-white hover:shadow-sm dark:hover:bg-neutral-800'
-            }`}
+            className={`p-1 rounded transition ${year >= currentYear
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:bg-white hover:shadow-sm dark:hover:bg-neutral-800'
+              }`}
           >
             <ChevronRight size={18} className="text-gray-600 dark:text-neutral-300" />
           </button>
         </div>
-      </header>
+      </div>
 
       {loading && (
         <div className="flex items-center text-gray-400 dark:text-neutral-500">
@@ -253,41 +252,84 @@ export default function ReportsYearly() {
 
       {data && (
         <>
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-neutral-900 p-4 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm">
-              <div className="text-sm text-gray-500 dark:text-neutral-400">年總支出</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-neutral-100 mt-2">
-                {formatCurrency(data.summary.totalExpense)}
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Annual Summary Card */}
+            <div className="bg-white dark:bg-neutral-900 p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm transition hover:shadow-md flex flex-col justify-between">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-neutral-400">年總支出</p>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-neutral-100 mt-1">
+                    {formatCurrency(data.summary.totalExpense)}
+                  </h3>
+                </div>
+                <div className="p-3 bg-red-50 text-red-600 dark:bg-rose-950/40 dark:text-rose-300 rounded-full">
+                  <Wallet size={24} />
+                </div>
               </div>
-              <div className="text-sm text-gray-500 dark:text-neutral-400 mt-2">
-                年總收入：{formatCurrency(data.summary.totalIncome)}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-neutral-400 mt-1">
-                年結餘：{formatCurrency(data.summary.net)}
+              <div className="space-y-2 pt-3 border-t border-gray-50 dark:border-neutral-800">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-neutral-500">年總收入</span>
+                  <span className="font-medium text-green-600 dark:text-emerald-400 flex items-center gap-1">
+                    <TrendingUp size={14} /> {formatCurrency(data.summary.totalIncome)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-neutral-500">年結餘</span>
+                  <span className={`font-medium ${data.summary.net >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-red-500 dark:text-red-400'} flex items-center gap-1`}>
+                    {formatCurrency(data.summary.net)}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-neutral-900 p-4 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm">
-              <div className="text-sm text-gray-500 dark:text-neutral-400">月平均支出</div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-neutral-100 mt-2">
-                {formatCurrency(data.summary.avgMonthlyExpense)}
+            {/* Monthly Average Card */}
+            <div className="bg-white dark:bg-neutral-900 p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm transition hover:shadow-md flex flex-col justify-between">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-neutral-400">月平均支出</p>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-neutral-100 mt-1">
+                    {formatCurrency(data.summary.avgMonthlyExpense)}
+                  </h3>
+                </div>
+                <div className="p-3 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300 rounded-full">
+                  <Calendar size={24} />
+                </div>
               </div>
-              <div className="text-sm text-gray-500 dark:text-neutral-400 mt-2">（用 12 個月平均）</div>
+              <div className="mt-4 pt-3 border-t border-gray-50 dark:border-neutral-800">
+                <p className="text-xs text-gray-400 dark:text-neutral-500">基於 12 個月平均計算</p>
+              </div>
             </div>
 
-            <div className="bg-white dark:bg-neutral-900 p-4 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm">
-              <div className="text-sm text-gray-500 dark:text-neutral-400">支出最高 / 最低月份</div>
-              <div className="text-sm text-gray-600 dark:text-neutral-300 mt-3">
-                最高：{formatMonthAmount(data.summary.maxExpenseMonth)}
+            {/* Extremes Card */}
+            <div className="bg-white dark:bg-neutral-900 p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm transition hover:shadow-md flex flex-col justify-between">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-neutral-400">支出峰值</p>
+                </div>
+                <div className="p-3 bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300 rounded-full">
+                  <ArrowUpDown size={24} />
+                </div>
               </div>
-              <div className="text-sm text-gray-600 dark:text-neutral-300 mt-2">
-                最低：{formatMonthAmount(data.summary.minExpenseMonth)}
+
+              <div className="space-y-2 pt-1">
+                <div className="flex justify-between items-center p-2 rounded-lg bg-red-50/50 dark:bg-rose-950/10">
+                  <span className="text-xs text-gray-500 dark:text-neutral-400">最高</span>
+                  <span className="text-sm font-bold text-gray-800 dark:text-neutral-200">
+                    {formatMonthAmount(data.summary.maxExpenseMonth)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-2 rounded-lg bg-green-50/50 dark:bg-emerald-950/10">
+                  <span className="text-xs text-gray-500 dark:text-neutral-400">最低</span>
+                  <span className="text-sm font-bold text-gray-800 dark:text-neutral-200">
+                    {formatMonthAmount(data.summary.minExpenseMonth)}
+                  </span>
+                </div>
               </div>
             </div>
           </section>
 
           <section className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            <div className="bg-white dark:bg-neutral-900 p-4 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm lg:col-span-3">
+            <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm lg:col-span-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-100">每月收支走勢</h3>
@@ -331,7 +373,7 @@ export default function ReportsYearly() {
               )}
             </div>
 
-            <div className="bg-white dark:bg-neutral-900 p-4 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm lg:col-span-2">
+            <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm lg:col-span-2">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-100">分類支出分布</h3>
