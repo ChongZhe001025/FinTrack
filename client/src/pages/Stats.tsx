@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import axios from 'axios';
 import {
   PieChart,
@@ -71,9 +72,7 @@ const RANGE_OPTIONS = [
 ];
 
 export default function Stats() {
-  const [pieData, setPieData] = useState<CategoryStat[]>([]);
-  const [barData, setBarData] = useState<ComparisonStat[]>([]);
-  const [weeklyData, setWeeklyData] = useState<WeeklyStat[]>([]);
+
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -118,41 +117,46 @@ export default function Stats() {
   const navigate = useNavigate();
 
   // 載入：圓餅圖 & 月度對比 (依月份變動)
+  // 載入：圓餅圖 & 月度對比 (依月份變動)
+  const { data: baseStats, isLoading: isBaseLoading } = useQuery({
+    queryKey: ['stats-base', baseMonth],
+    queryFn: async () => {
+      const [pieRes, barRes] = await Promise.all([
+        axios.get(`/api/v1/stats/category?month=${baseMonth}`),
+        axios.get(`/api/v1/stats/comparison?month=${baseMonth}`),
+      ]);
+      return {
+        pie: pieRes.data || [],
+        bar: barRes.data || []
+      };
+    },
+    placeholderData: keepPreviousData,
+  });
+
+  const pieData = (baseStats?.pie || []) as CategoryStat[];
+  const barData = (baseStats?.bar || []) as ComparisonStat[];
+
   useEffect(() => {
-    const fetchBaseStats = async () => {
-      try {
-        const [pieRes, barRes] = await Promise.all([
-          axios.get(`/api/v1/stats/category?month=${baseMonth}`),
-          axios.get(`/api/v1/stats/comparison?month=${baseMonth}`),
-        ]);
-        setPieData(pieRes.data || []);
-        setBarData(barRes.data || []);
-      } catch (error) {
-        console.error('無法取得基礎統計資料', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchBaseStats();
-  }, [baseMonth]);
+    setIsLoading(isBaseLoading);
+  }, [isBaseLoading]);
 
   // 獨立載入：消費習慣 (當 weeklyRange 改變時觸發)
-  useEffect(() => {
-    const fetchWeeklyStats = async () => {
-      setIsWeeklyLoading(true);
-      try {
-        const res = await axios.get(`/api/v1/stats/weekly?range=${weeklyRange}`);
-        setWeeklyData(res.data || []);
-      } catch (error) {
-        console.error('無法取得消費習慣', error);
-      } finally {
-        setIsWeeklyLoading(false);
-      }
-    };
-    fetchWeeklyStats();
-  }, [weeklyRange]);
+  const { data: weeklyStats, isLoading: isWeekLoading } = useQuery({
+    queryKey: ['stats-weekly', weeklyRange],
+    queryFn: async () => {
+      const res = await axios.get(`/api/v1/stats/weekly?range=${weeklyRange}`);
+      return res.data || [];
+    },
+    placeholderData: keepPreviousData,
+  });
 
-  const totalExpense = pieData.reduce((sum, item) => sum + item.amount, 0);
+  const weeklyData = (weeklyStats || []) as WeeklyStat[];
+
+  useEffect(() => {
+    setIsWeeklyLoading(isWeekLoading);
+  }, [isWeekLoading]);
+
+  const totalExpense = pieData.reduce((sum: number, item: CategoryStat) => sum + item.amount, 0);
 
   const [selectedYear, selectedMonth] = baseMonth.split('-').map(Number);
   const selectedMonthDate = new Date(selectedYear, selectedMonth - 1, 1);

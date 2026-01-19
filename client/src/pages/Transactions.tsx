@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, forwardRef } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import axios from 'axios';
 import { Loader2, AlertCircle, Edit2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Calendar, X, Clock, Check, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
@@ -80,7 +81,14 @@ export default function Transactions() {
   maxMonthStart.setDate(1);
   maxMonthStart.setMonth(maxMonthStart.getMonth() + 12);
 
-  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(() => {
+    const month = monthParam || getSelectedMonth();
+    const start = new Date(`${month}-01T00:00:00`);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+    end.setDate(0); // Last day of month
+    return [start, end];
+  });
   const [startDate, endDate] = dateRange;
 
   // ✨ 控制快速選單開關
@@ -165,48 +173,53 @@ export default function Transactions() {
   const [selectedYear, selectedMonth] = currentMonth.split('-').map(Number);
   const selectedMonthDate = new Date(selectedYear, selectedMonth - 1, 1);
   // Fetch Transactions with Server-side Pagination & Filtering
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      setIsLoading(true);
-      setError('');
-      try {
-        const params: any = {
-          page,
-          limit: 50,
-        };
+  // Fetch Transactions with Server-side Pagination & Filtering
+  const { data: transactionData, isLoading: isQueryLoading, error: queryError } = useQuery({
+    queryKey: ['transactions', page, activeCategoryFilter, startDate ? formatDate(startDate) : '', endDate ? formatDate(endDate) : ''],
+    queryFn: async () => {
+      const params: any = {
+        page,
+        limit: 50,
+      };
 
-        if (activeCategoryFilter) {
-          params.category_id = activeCategoryFilter;
-        }
-
-        if (startDate) {
-          params.start_date = formatDate(startDate);
-        }
-        if (endDate) {
-          params.end_date = formatDate(endDate);
-        }
-
-        const res = await axios.get('/api/v1/transactions', { params });
-
-        // Handle new response structure
-        if (res.data.meta) {
-          setTransactions(res.data.data || []);
-          setTotalPages(res.data.meta.total_pages);
-          setTotalCount(res.data.meta.total);
-        } else {
-          setTransactions(res.data || []);
-        }
-
-      } catch (err) {
-        console.error('API 錯誤:', err);
-        setError('無法連接到伺服器');
-      } finally {
-        setIsLoading(false);
+      if (activeCategoryFilter) {
+        params.category_id = activeCategoryFilter;
       }
-    };
 
-    fetchTransactions();
-  }, [page, activeCategoryFilter, startDate, endDate]);
+      if (startDate) {
+        params.start_date = formatDate(startDate);
+      }
+      if (endDate) {
+        params.end_date = formatDate(endDate);
+      }
+
+      const res = await axios.get('/api/v1/transactions', { params });
+      return res.data;
+    },
+    placeholderData: keepPreviousData,
+  });
+
+  useEffect(() => {
+    if (transactionData) {
+      if (transactionData.meta) {
+        setTransactions(transactionData.data || []);
+        setTotalPages(transactionData.meta.total_pages);
+        setTotalCount(transactionData.meta.total);
+      } else {
+        setTransactions(transactionData || []);
+      }
+      setIsLoading(false);
+    }
+  }, [transactionData]);
+
+  useEffect(() => {
+    if (isQueryLoading) setIsLoading(true);
+  }, [isQueryLoading]);
+
+  useEffect(() => {
+    if (queryError) setError('無法連接到伺服器');
+    else setError('');
+  }, [queryError]);
 
   const isNextDisabled =
     Number.isInteger(selectedYear) &&

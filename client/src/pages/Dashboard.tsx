@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, forwardRef } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import axios from 'axios';
 import { TrendingUp, TrendingDown, DollarSign, Loader2, Calendar, X, ChevronLeft, ChevronRight, LayoutDashboard } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -227,7 +228,7 @@ const StatCard = ({ title, amount, type }: { title: string, amount: string, type
       <div>
         <p className="text-sm text-gray-500 dark:text-neutral-400 font-medium">{title}</p>
         <h3 className={`text-2xl font-bold mt-1 ${type === 'income' ? 'text-green-600 dark:text-emerald-300' :
-            type === 'expense' ? 'text-gray-900 dark:text-neutral-100' : 'text-indigo-600 dark:text-neutral-200'
+          type === 'expense' ? 'text-gray-900 dark:text-neutral-100' : 'text-indigo-600 dark:text-neutral-200'
           }`}>
           {amount}
         </h3>
@@ -240,11 +241,6 @@ const StatCard = ({ title, amount, type }: { title: string, amount: string, type
 }
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<DashboardStats>({ total_income: 0, total_expense: 0, balance: 0 });
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
   const [currentMonth, setCurrentMonth] = useState(() => getSelectedMonth());
   const [timeRange, setTimeRange] = useState<TimeRange>('7days');
   const { theme } = useTheme();
@@ -267,30 +263,26 @@ export default function Dashboard() {
   // 2. 新增：自訂區間的開始與結束日期
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [startDate, endDate] = dateRange;
+  const { data: dashboardData, isLoading } = useQuery({
+    queryKey: ['dashboard', currentMonth],
+    queryFn: async () => {
+      const [statsRes, transRes, catRes] = await Promise.all([
+        axios.get('/api/v1/stats', { params: { month: currentMonth } }),
+        axios.get('/api/v1/transactions'),
+        axios.get('/api/v1/categories')
+      ]);
+      return {
+        stats: normalizeStats(statsRes.data),
+        transactions: normalizeTransactions(transRes.data),
+        categories: normalizeCategories(catRes.data)
+      };
+    },
+    placeholderData: keepPreviousData,
+  });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsRes, transRes, catRes] = await Promise.all([
-          axios.get('/api/v1/stats', { params: { month: currentMonth } }),
-          axios.get('/api/v1/transactions'),
-          axios.get('/api/v1/categories')
-        ]);
-        setStats(normalizeStats(statsRes.data));
-        const normalizedTransactions = normalizeTransactions(transRes.data);
-        if (normalizedTransactions.length === 0 && !Array.isArray(transRes.data)) {
-          console.warn('Unexpected transactions response:', transRes.data);
-        }
-        setTransactions(normalizedTransactions);
-        setCategories(normalizeCategories(catRes.data));
-      } catch (error) {
-        console.error("無法取得 Dashboard 資料:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [currentMonth]);
+  const stats = dashboardData?.stats || { total_income: 0, total_expense: 0, balance: 0 };
+  const transactions = useMemo(() => dashboardData?.transactions || [], [dashboardData]);
+  const categories = useMemo(() => dashboardData?.categories || [], [dashboardData]);
 
   const changeMonth = (offset: number) => {
     const date = new Date(currentMonth + "-01");
@@ -511,8 +503,8 @@ export default function Dashboard() {
             onClick={() => changeMonth(1)}
             disabled={isNextDisabled}
             className={`p-1 rounded transition ${isNextDisabled
-                ? 'opacity-50 cursor-not-allowed'
-                : 'hover:bg-white hover:shadow-sm dark:hover:bg-neutral-800'
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:bg-white hover:shadow-sm dark:hover:bg-neutral-800'
               }`}
           >
             <ChevronRight size={18} className="text-gray-600 dark:text-neutral-300" />
