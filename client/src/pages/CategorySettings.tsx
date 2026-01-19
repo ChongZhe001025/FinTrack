@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Trash2, Edit2, Plus, Check, X, Tag, GripVertical } from 'lucide-react';
 import clsx from 'clsx';
@@ -12,9 +13,6 @@ interface Category {
 }
 
 export default function CategorySettings() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
   // 編輯狀態
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -29,32 +27,44 @@ export default function CategorySettings() {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragPointerIdRef = useRef<number | null>(null);
 
-  const fetchCategories = async () => {
-    try {
+  const queryClient = useQueryClient();
+
+  const { data: categories = [], isLoading } = useQuery<Category[]>({
+    queryKey: ['categories'],
+    queryFn: async () => {
       const res = await axios.get('/api/v1/categories');
-      const data = (res.data || []).slice().sort((a: Category, b: Category) => {
+      return (res.data || []).slice().sort((a: Category, b: Category) => {
         const orderDiff = (a.order ?? 0) - (b.order ?? 0);
         if (orderDiff !== 0) return orderDiff;
         return a.name.localeCompare(b.name, 'zh-Hant');
       });
-      setCategories(data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+  });
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  // Mutations
+  const createCategoryMutation = useMutation({
+    mutationFn: (newCat: { name: string; type: 'income' | 'expense' }) => axios.post('/api/v1/categories', newCat),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; type?: 'income' | 'expense'; order?: number }) =>
+      axios.put(`/api/v1/categories/${id}`, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (id: string) => axios.delete(`/api/v1/categories/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
+  });
+
+
 
   // 刪除
   const handleDelete = async (id: string) => {
     if (!confirm('確定要刪除此類別嗎？(這不會刪除已關聯的交易紀錄，但可能會影響分類統計)')) return;
     try {
-      await axios.delete(`/api/v1/categories/${id}`);
-      setCategories((prev) => prev.filter((c) => c.id !== id));
+      await deleteCategoryMutation.mutateAsync(id);
     } catch (error) {
       alert('刪除失敗');
     }
@@ -71,9 +81,7 @@ export default function CategorySettings() {
   const saveEdit = async () => {
     if (!editingId || !editName.trim()) return;
     try {
-      const payload = { name: editName.trim(), type: editType };
-      await axios.put(`/api/v1/categories/${editingId}`, payload);
-      setCategories((prev) => prev.map((c) => (c.id === editingId ? { ...c, ...payload } : c)));
+      await updateCategoryMutation.mutateAsync({ id: editingId, name: editName.trim(), type: editType });
       setEditingId(null);
     } catch (error) {
       alert('修改失敗');
@@ -85,9 +93,9 @@ export default function CategorySettings() {
 
     try {
       await Promise.all(updates.map((item) => axios.put(`/api/v1/categories/${item.id}`, { order: item.order })));
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
     } catch (error) {
       alert('排序更新失敗，請再試一次');
-      fetchCategories();
     }
   };
 
@@ -107,6 +115,10 @@ export default function CategorySettings() {
     next.splice(toIndex, 0, moved);
 
     const nextWithOrder = next.map((cat, index) => ({ ...cat, order: index + 1 }));
+
+    // Optimistic update
+    queryClient.setQueryData(['categories'], nextWithOrder);
+
     const updates = nextWithOrder
       .map((cat) => {
         const previous = categories.find((prevCat) => prevCat.id === cat.id);
@@ -118,7 +130,6 @@ export default function CategorySettings() {
       })
       .filter((item): item is { id: string; order: number } => item !== null);
 
-    setCategories(nextWithOrder);
     persistOrder(updates);
   };
 
@@ -199,17 +210,10 @@ export default function CategorySettings() {
   const saveNew = async () => {
     if (!newName.trim()) return;
     try {
-      const res = await axios.post('/api/v1/categories', {
+      await createCategoryMutation.mutateAsync({
         name: newName,
         type: 'expense',
       });
-      setCategories((prev) =>
-        [...prev, res.data].sort((a: Category, b: Category) => {
-          const orderDiff = (a.order ?? 0) - (b.order ?? 0);
-          if (orderDiff !== 0) return orderDiff;
-          return a.name.localeCompare(b.name, 'zh-Hant');
-        })
-      );
       setIsAdding(false);
       setNewName('');
     } catch (error) {
