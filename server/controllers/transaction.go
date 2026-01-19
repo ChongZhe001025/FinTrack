@@ -7,6 +7,8 @@ import (
 	"server/models"
 	"time"
 
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -63,10 +65,64 @@ func GetTransactions(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// 修改重點：加入排序選項，依照 "date" 欄位倒序 (-1) 排列
-	opts := options.Find().SetSort(bson.D{{Key: "date", Value: -1}})
+	// 1. Pagination Parameters
+	pageStr := c.Query("page")
+	limitStr := c.Query("limit")
 
+	page := 1
+	limit := 50 // Default limit
+
+	if pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	skip := (page - 1) * limit
+
+	// 2. Filter Parameters
 	filter := bson.M{"owner": currentUser}
+
+	// Date Range
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	if startDate != "" || endDate != "" {
+		dateFilter := bson.M{}
+		if startDate != "" {
+			dateFilter["$gte"] = startDate
+		}
+		if endDate != "" {
+			dateFilter["$lte"] = endDate
+		}
+		filter["date"] = dateFilter
+	}
+
+	// Category
+	categoryID := c.Query("category_id")
+	if categoryID != "" {
+		if oid, err := primitive.ObjectIDFromHex(categoryID); err == nil {
+			filter["category_id"] = oid
+		}
+	}
+
+	// 3. Count Total (before pagination)
+	total, err := collection.CountDocuments(ctx, filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "無法計算總數"})
+		return
+	}
+
+	// 4. Query with Pagination
+	opts := options.Find().
+		SetSort(bson.D{{Key: "date", Value: -1}}).
+		SetSkip(int64(skip)).
+		SetLimit(int64(limit))
+
 	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "無法讀取資料"})
@@ -80,12 +136,20 @@ func GetTransactions(c *gin.Context) {
 		return
 	}
 
-	// 如果沒有資料，回傳空陣列而不是 null
 	if transactions == nil {
 		transactions = []models.Transaction{}
 	}
 
-	c.JSON(http.StatusOK, transactions)
+	// Return data with pagination info
+	c.JSON(http.StatusOK, gin.H{
+		"data": transactions,
+		"meta": gin.H{
+			"total":       total,
+			"page":        page,
+			"limit":       limit,
+			"total_pages": (int(total) + limit - 1) / limit,
+		},
+	})
 }
 
 // GetDashboardStats godoc
@@ -156,7 +220,7 @@ func GetDashboardStats(c *gin.Context) {
 				{Key: "categoryDoc.type", Value: bson.D{{Key: "$in", Value: bson.A{"income", "expense"}}}},
 			}}},
 			{{Key: "$group", Value: bson.D{
-				{Key: "_id", Value: "$categoryDoc.type"},                        // 依照 type 分組 (income/expense)
+				{Key: "_id", Value: "$categoryDoc.type"},                       // 依照 type 分組 (income/expense)
 				{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}}, // 加總 amount
 			}}},
 		}
@@ -365,12 +429,12 @@ func UpdateTransaction(c *gin.Context) {
 
 	update := bson.M{
 		"$set": bson.M{
-			"amount":     input.Amount,
+			"amount":      input.Amount,
 			"category_id": input.CategoryID,
-			"date":       input.Date,
-			"note":       input.Note,
-			"owner":      currentUser,
-			"updated_at": input.UpdatedAt,
+			"date":        input.Date,
+			"note":        input.Note,
+			"owner":       currentUser,
+			"updated_at":  input.UpdatedAt,
 		},
 	}
 

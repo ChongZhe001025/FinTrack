@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -28,6 +29,7 @@ func main() {
 	}
 
 	config.ConnectDB()
+	config.CreateIndexes()
 
 	// 初始化預設類別種子資料
 	seedCategories()
@@ -90,6 +92,9 @@ func GinRouter() *gin.Engine {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+
+	// 5. 啟用 Gzip 壓縮
+	r.Use(gzip.Gzip(gzip.DefaultCompression))
 
 	// 4. (選用) 可以考慮在生產環境關閉 Swagger，或加上帳號密碼驗證
 	// if os.Getenv("GIN_MODE") != "release" {

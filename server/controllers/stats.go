@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // WeeklyStat 回傳格式
@@ -82,7 +83,12 @@ func GetWeeklyHabits(c *gin.Context) {
 		"date":        bson.M{"$gte": startDate},
 	}
 
-	cursor, err := collection.Find(ctx, filter)
+	// 最佳化: 只撈取需要的欄位 (date, amount)
+	opts := options.Find().
+		SetProjection(bson.M{"date": 1, "amount": 1}).
+		SetHint("idx_owner_cat_date")
+
+	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "無法取得資料"})
 		return

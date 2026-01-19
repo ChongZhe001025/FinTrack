@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -50,4 +51,41 @@ func ConnectDB() {
 func GetCollection(collectionName string) *mongo.Collection {
 	// 使用動態設定的 DBName，而不是寫死的字串
 	return DB.Database(DBName).Collection(collectionName)
+}
+
+// CreateIndexes 初始化資料庫索引
+func CreateIndexes() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	coll := GetCollection("transactions")
+
+	// 1. Compound Index: Owner (Asc) + Date (Desc)
+	// 用於: GetTransactions (sort by date), GetWeeklyHabits
+	_, err := coll.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "owner", Value: 1},
+			{Key: "date", Value: -1},
+		},
+		Options: options.Index().SetName("idx_owner_date"),
+	})
+	if err != nil {
+		log.Printf("⚠️ 無法建立 idx_owner_date 索引: %v", err)
+	}
+
+	// 2. Compound Index: Owner + Category + Date
+	// 用於: GetDashboardStats, GetCategoryStats (lookup)
+	_, err = coll.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "owner", Value: 1},
+			{Key: "category_id", Value: 1},
+			{Key: "date", Value: -1},
+		},
+		Options: options.Index().SetName("idx_owner_cat_date"),
+	})
+	if err != nil {
+		log.Printf("⚠️ 無法建立 idx_owner_cat_date 索引: %v", err)
+	}
+
+	fmt.Println("✅ 資料庫索引初始化完成")
 }
