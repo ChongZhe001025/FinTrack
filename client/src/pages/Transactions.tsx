@@ -59,7 +59,7 @@ const formatMonth = (date: Date) => formatDate(date).slice(0, 7);
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -97,25 +97,19 @@ export default function Transactions() {
 
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
 
-  // Fetch Categories
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await axios.get('/api/v1/categories');
-        const categoryData = (res.data || []).slice().sort((a: Category, b: Category) => {
-          const orderDiff = (a.order ?? 0) - (b.order ?? 0);
-          if (orderDiff !== 0) return orderDiff;
-          return a.name.localeCompare(b.name, 'zh-Hant');
-        });
-        setCategories(categoryData);
-      } catch (err) {
-        console.error('無法取得分類:', err);
-      }
-    };
-    fetchCategories();
-  }, []);
-
-
+  // Fetch Categories using React Query
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await axios.get('/api/v1/categories');
+      return (res.data || []).slice().sort((a: Category, b: Category) => {
+        const orderDiff = (a.order ?? 0) - (b.order ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        return a.name.localeCompare(b.name, 'zh-Hant');
+      });
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   useEffect(() => {
     const fallbackMonth = getSelectedMonth();
