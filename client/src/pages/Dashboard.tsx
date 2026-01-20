@@ -489,7 +489,7 @@ export default function Dashboard() {
         .react-datepicker-wrapper { width: auto; }
       `}</style>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex flex-col items-start sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2">
           <LayoutDashboard className="text-indigo-600 dark:text-indigo-300" />
           <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 shrink-0">月度概況</h2>

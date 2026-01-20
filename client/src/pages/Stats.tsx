@@ -193,7 +193,7 @@ export default function Stats() {
 
   return (
     <div className="space-y-6 pb-20 pt-4">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex flex-col items-start sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2">
           <BarChart3 className="text-indigo-600 dark:text-indigo-300" />
           <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 shrink-0">每月報表</h2>
