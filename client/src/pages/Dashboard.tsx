@@ -268,7 +268,13 @@ export default function Dashboard() {
     queryFn: async () => {
       const [statsRes, transRes, catRes] = await Promise.all([
         axios.get('/api/v1/stats', { params: { month: currentMonth } }),
-        axios.get('/api/v1/transactions'),
+        axios.get('/api/v1/transactions', {
+          params: {
+            start_date: `${currentMonth}-01`,
+            end_date: `${currentMonth}-31`, // Simple way to cover the whole month
+            limit: 500 // Ensure we get enough for the chart
+          }
+        }),
         axios.get('/api/v1/categories')
       ]);
       return {
@@ -402,42 +408,8 @@ export default function Dashboard() {
       .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
   }, [transactions, categoryTypeById, categoryTypeByName, effectiveTimeRange, startDate, endDate, currentMonth, isCurrentMonth]); // 注意：這裡要加入 startDate, endDate 到依賴陣列
 
-  const derivedStats = useMemo(() => {
-    let totalIncome = 0;
-    let totalExpense = 0;
-    let matchedCount = 0;
+  const displayStats = stats;
 
-    transactions.forEach((transaction) => {
-      const dateKey = transaction.date.slice(0, 7);
-      if (dateKey !== currentMonth) return;
-      const type = resolveTransactionType(transaction, categoryTypeById, categoryTypeByName);
-      if (!type) return;
-      matchedCount += 1;
-      if (type === 'income') {
-        totalIncome += transaction.amount;
-      } else {
-        totalExpense += transaction.amount;
-      }
-    });
-
-    return {
-      total_income: totalIncome,
-      total_expense: totalExpense,
-      balance: totalIncome - totalExpense,
-      matchedCount,
-    };
-  }, [transactions, currentMonth, categoryTypeById, categoryTypeByName]);
-
-  const displayStats = useMemo<DashboardStats>(() => {
-    if (derivedStats.matchedCount > 0) {
-      return {
-        total_income: derivedStats.total_income,
-        total_expense: derivedStats.total_expense,
-        balance: derivedStats.balance,
-      };
-    }
-    return stats;
-  }, [stats, derivedStats]);
 
   // 4. 自訂 DatePicker 的 Trigger 按鈕元件
   // 使用 forwardRef 讓 DatePicker 可以綁定點擊事件
