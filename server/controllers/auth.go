@@ -11,6 +11,7 @@ var USERS = map[string]string{
 	"chongzhe": "20001025Jonas",
 	"yunchen":  "20000722Jenny",
 	"moon":     "19670706Moon",
+	"guest":    "guest123456",
 }
 
 const COOKIE_NAME = "fintrack_session"
