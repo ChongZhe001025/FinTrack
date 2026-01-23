@@ -193,12 +193,18 @@ export default function Transactions() {
     placeholderData: keepPreviousData,
   });
 
+  const [aggregatedTotals, setAggregatedTotals] = useState({ income: 0, expense: 0 });
+
   useEffect(() => {
     if (transactionData) {
       if (transactionData.meta) {
         setTransactions(transactionData.data || []);
         setTotalPages(transactionData.meta.total_pages);
         setTotalCount(transactionData.meta.total);
+        setAggregatedTotals({
+          income: transactionData.meta.total_income || 0,
+          expense: transactionData.meta.total_expense || 0
+        });
       } else {
         setTransactions(transactionData || []);
       }
@@ -296,20 +302,32 @@ export default function Transactions() {
   }, [transactions, noteQuery, sortConfig, getCategoryName]);
 
   const filteredTotals = useMemo(() => {
-    return processedTransactions.reduce(
-      (acc, item) => {
-        const type = getCategoryType(item.category_id);
-        if (type === 'income') {
-          acc.income += item.amount;
-        } else {
-          acc.expense += item.amount;
-        }
-        acc.net = acc.income - acc.expense;
-        return acc;
-      },
-      { income: 0, expense: 0, net: 0 }
-    );
-  }, [processedTransactions, getCategoryType]);
+    // If we have note filtering active, we unfortunately fall back to local page-only totals 
+    // unless we also add note search to the backend.
+    // However, for standard category/date filtering, we use backend totals.
+    if (noteQuery.trim()) {
+      return processedTransactions.reduce(
+        (acc, item) => {
+          const type = getCategoryType(item.category_id);
+          if (type === 'income') {
+            acc.income += item.amount;
+          } else {
+            acc.expense += item.amount;
+          }
+          acc.net = acc.income - acc.expense;
+          return acc;
+        },
+        { income: 0, expense: 0, net: 0 }
+      );
+    }
+
+    return {
+      income: aggregatedTotals.income,
+      expense: aggregatedTotals.expense,
+      net: aggregatedTotals.income - aggregatedTotals.expense
+    };
+  }, [processedTransactions, getCategoryType, aggregatedTotals, noteQuery]);
+
 
   const SortIcon = ({ columnKey }: { columnKey: SortKey }) => {
     if (sortConfig.key !== columnKey) return <ArrowUpDown size={14} className="text-gray-300 dark:text-neutral-600 ml-1" />;

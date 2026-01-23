@@ -117,7 +117,40 @@ func GetTransactions(c *gin.Context) {
 		return
 	}
 
-	// 4. Query with Pagination
+	// 4. Calculate Totals (Aggregated)
+	var totalIncome, totalExpense float64
+	aggregatePipeline := mongo.Pipeline{
+		{{Key: "$match", Value: filter}},
+		{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "categories"},
+			{Key: "localField", Value: "category_id"},
+			{Key: "foreignField", Value: "_id"},
+			{Key: "as", Value: "categoryDoc"},
+		}}},
+		{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$categoryDoc"}, {Key: "preserveNullAndEmptyArrays", Value: true}}}},
+		{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "$categoryDoc.type"},
+			{Key: "total", Value: bson.D{{Key: "$sum", Value: "$amount"}}},
+		}}},
+	}
+
+	aggCursor, err := collection.Aggregate(ctx, aggregatePipeline)
+	if err == nil {
+		var aggResults []bson.M
+		if err := aggCursor.All(ctx, &aggResults); err == nil {
+			for _, res := range aggResults {
+				typ, _ := res["_id"].(string)
+				val, _ := res["total"].(float64)
+				if typ == "income" {
+					totalIncome = val
+				} else if typ == "expense" {
+					totalExpense = val
+				}
+			}
+		}
+	}
+
+	// 5. Query with Pagination
 	opts := options.Find().
 		SetSort(bson.D{{Key: "date", Value: -1}}).
 		SetSkip(int64(skip)).
@@ -144,10 +177,12 @@ func GetTransactions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"data": transactions,
 		"meta": gin.H{
-			"total":       total,
-			"page":        page,
-			"limit":       limit,
-			"total_pages": (int(total) + limit - 1) / limit,
+			"total":         total,
+			"page":          page,
+			"limit":         limit,
+			"total_pages":   (int(total) + limit - 1) / limit,
+			"total_income":  totalIncome,
+			"total_expense": totalExpense,
 		},
 	})
 }
