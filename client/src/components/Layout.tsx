@@ -14,9 +14,9 @@ const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, label: '總覽' },
   { to: '/transactions', icon: List, label: '紀錄' },
   { to: '/fixed-expenses', icon: Calendar, label: '固定支出' },
+  { to: '/categories', icon: Tags, label: '分類管理' },
   { to: '/stats', icon: BarChart3, label: '每月報表' },
   { to: '/reports/yearly', icon: LineChart, label: '年度報表' },
-  { to: '/categories', icon: Tags, label: '分類管理' },
 ];
 const APP_TITLE = 'FinTrack';
 const PAGE_TITLES: Record<string, string> = {
