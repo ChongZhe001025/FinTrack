@@ -144,6 +144,7 @@ func GinRouter() *gin.Engine {
 			// Fixed Expenses
 			protected.POST("/fixed-expenses", controllers.CreateFixedExpense)
 			protected.GET("/fixed-expenses", controllers.GetFixedExpenses)
+			protected.PUT("/fixed-expenses/:id", controllers.UpdateFixedExpense)
 			protected.DELETE("/fixed-expenses/:id", controllers.DeleteFixedExpense)
 		}
 	}

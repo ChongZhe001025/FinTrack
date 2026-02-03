@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { X, Check, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import axios from 'axios';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Transaction {
   id: string;
@@ -33,22 +34,16 @@ interface TransactionModalProps {
   editData?: Transaction;
 }
 
-const LAST_SELECTED_DATE_KEY = 'fintrack:lastSelectedTransactionDate';
+// In-memory state for the last selected date.
+// This persists only while the page is open. Reloading resets it.
+let cachedLastDate = new Date().toISOString().split('T')[0];
 
 const getDefaultDate = () => {
-  if (typeof window === 'undefined') {
-    return new Date().toISOString().split('T')[0];
-  }
-  const saved = localStorage.getItem(LAST_SELECTED_DATE_KEY);
-  if (saved) {
-    return saved;
-  }
-  return new Date().toISOString().split('T')[0];
+  return cachedLastDate;
 };
 
 const setLastSelectedDate = (value: string) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(LAST_SELECTED_DATE_KEY, value);
+  cachedLastDate = value;
 };
 
 export default function TransactionModal({ isOpen, onClose, editData }: TransactionModalProps) {
@@ -187,12 +182,16 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
     setNewCategoryName('');
   };
 
+  const queryClient = useQueryClient();
+
   // 刪除交易
   const handleDelete = async () => {
     if (!editData || !confirm('確定要刪除這筆紀錄嗎？')) return;
     try {
       await axios.delete(`/api/v1/transactions/${editData.id}`);
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['statistics'] }); // 假設有統計資料需要更新
+      onClose();
     } catch (error) {
       console.error(error);
       alert('刪除失敗');
@@ -210,8 +209,9 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
         await axios.post('/api/v1/transactions', payload);
       }
 
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['statistics'] });
       onClose();
-      window.location.reload();
     } catch (error) {
       console.error('操作失敗:', error);
       alert('操作失敗，請檢查後端連線');

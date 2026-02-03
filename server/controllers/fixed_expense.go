@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // CreateFixedExpense godoc
@@ -41,17 +42,102 @@ func CreateFixedExpense(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := collection.InsertOne(ctx, input)
+	// 找出目前最大的 Order
+	// 簡單作法：Find options set Sort({order: -1}), Limit(1)
+	opts := options.FindOne().SetSort(bson.D{{Key: "order", Value: -1}})
+	var maxOrderExp models.FixedExpense
+	err := collection.FindOne(ctx, bson.M{"owner": currentUser}, opts).Decode(&maxOrderExp)
+	if err == nil {
+		input.Order = maxOrderExp.Order + 1
+	} else {
+		input.Order = 1 // 第一筆
+	}
+
+	_, err = collection.InsertOne(ctx, input)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "無法寫入固定支出設定"})
 		return
 	}
 
 	// 建立當月交易紀錄
-	// 邏輯: 根據設定的 Day，計算出本月的日期，建立一筆 Transaction
-	go createTransactionForFixedExpense(input, time.Now())
+	// 邏輯: 只有當設定的日 <= 今天，才補建當月紀錄 (代表錯過了當月的 Cron)
+	// 如果設定的日 > 今天，則交由當月的 Cron 執行 (避免重複 & 建立未來交易)
+	if input.Day <= time.Now().Day() {
+		go createTransactionForFixedExpense(input, time.Now())
+	}
 
 	c.JSON(http.StatusOK, input)
+}
+
+// UpdateFixedExpense godoc
+// @Summary      更新固定支出 (包含排序)
+// @Description  更新固定支出內容或排序
+// @Tags         FixedExpenses
+// @Accept       json
+// @Produce      json
+// @Param        id           path      string               true  "Fixed Expense ID"
+// @Param        fixedExpense body      models.FixedExpense  true  "固定支出資料"
+// @Success      200  {object}  models.FixedExpense
+// @Router       /fixed-expenses/{id} [put]
+func UpdateFixedExpense(c *gin.Context) {
+	currentUser := c.MustGet("currentUser").(string)
+	idParam := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "無效的 ID"})
+		return
+	}
+
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	collection := config.GetCollection("fixed_expenses")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	updateData := bson.M{
+		"updated_at": time.Now(),
+	}
+
+	// 允許更新的欄位 (目前主要為了 Order，但也預留其他欄位更新)
+	if val, ok := input["order"]; ok {
+		updateData["order"] = val
+	}
+	if val, ok := input["amount"]; ok {
+		updateData["amount"] = val
+	}
+	if val, ok := input["day"]; ok {
+		updateData["day"] = val
+	}
+	if val, ok := input["note"]; ok {
+		updateData["note"] = val
+	}
+	if val, ok := input["category_id"]; ok {
+		if catIDStr, ok := val.(string); ok {
+			if catObjID, err := primitive.ObjectIDFromHex(catIDStr); err == nil {
+				updateData["category_id"] = catObjID
+			}
+		}
+	}
+
+	filter := bson.M{"_id": objID, "owner": currentUser}
+	update := bson.M{"$set": updateData}
+
+	result, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新失敗"})
+		return
+	}
+
+	if result.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "找不到該筆資料"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "更新成功"})
 }
 
 // ProcessFixedExpenses 每日檢查並執行固定支出

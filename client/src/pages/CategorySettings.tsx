@@ -368,7 +368,7 @@ export default function CategorySettings() {
                       <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => startEdit(cat)}
-                          className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition dark:text-neutral-500 dark:hover:text-neutral-100 dark:hover:bg-neutral-800"
+                          className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition dark:text-neutral-500 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20"
                           title="編輯"
                         >
                           <Edit2 size={16} />

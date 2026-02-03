@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback, forwardRef } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import axios from 'axios';
-import { Loader2, AlertCircle, Edit2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Calendar, X, Clock, Check, ChevronLeft, ChevronRight, List } from 'lucide-react';
+import { Loader2, AlertCircle, Edit2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Calendar, X, Clock, Check, ChevronLeft, ChevronRight, List, Trash2 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import AddTransactionModal from '../components/AddTransactionModal';
 import clsx from 'clsx';
@@ -59,6 +59,7 @@ const formatMonth = (date: Date) => formatDate(date).slice(0, 7);
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const queryClient = useQueryClient();
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -220,6 +221,24 @@ export default function Transactions() {
     if (queryError) setError('無法連接到伺服器');
     else setError('');
   }, [queryError]);
+
+  const deleteTransactionMutation = useMutation({
+    mutationFn: (id: string) => axios.delete(`/api/v1/transactions/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      // Also invalidate summary stats if needed, or just rely on transactions refetch
+    },
+  });
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Prevent row click
+    if (!confirm('確定要刪除此交易紀錄嗎？')) return;
+    try {
+      await deleteTransactionMutation.mutateAsync(id);
+    } catch (error) {
+      alert('刪除失敗');
+    }
+  };
 
   const isNextDisabled =
     Number.isInteger(selectedYear) &&
@@ -639,8 +658,26 @@ export default function Transactions() {
                       NT$ {t.amount.toLocaleString()}
                     </td>
 
-                    <td className="pr-4 text-gray-300 dark:text-neutral-600 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Edit2 size={16} />
+                    <td className="pr-4 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditClick(t);
+                          }}
+                          className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition dark:text-neutral-500 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20"
+                          title="編輯"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(e, t.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition dark:text-neutral-500 dark:hover:text-red-300 dark:hover:bg-neutral-800"
+                          title="刪除"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
