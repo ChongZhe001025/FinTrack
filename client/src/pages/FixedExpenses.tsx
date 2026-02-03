@@ -507,7 +507,7 @@ export default function FixedExpenses() {
                                         max="31"
                                         {...register('day', { required: true, min: 1, max: 31 })}
                                         className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 dark:bg-neutral-950 dark:border-neutral-700 dark:text-white"
-                                        placeholder="例如: 5 (每月5號)"
+                                        placeholder="例如: 1 (每月1號)"
                                     />
                                     <span className="absolute right-3 top-3 text-gray-400 dark:text-neutral-500 text-sm">日</span>
                                 </div>
@@ -549,7 +549,7 @@ export default function FixedExpenses() {
                                     type="text"
                                     {...register('note')}
                                     className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 dark:bg-neutral-950 dark:border-neutral-700 dark:text-white"
-                                    placeholder="例如: 房租、Spotify 訂閱"
+                                    placeholder="例如: Gemini Submit、Salary"
                                 />
                             </div>
 
