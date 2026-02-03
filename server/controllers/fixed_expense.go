@@ -15,6 +15,44 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type fixedExpenseResponse struct {
+	ID         string    `json:"id"`
+	Amount     float64   `json:"amount"`
+	CategoryID string    `json:"category_id"`
+	Note       string    `json:"note"`
+	Owner      string    `json:"owner"`
+	Day        int       `json:"day"`
+	Type       string    `json:"type"`
+	Order      int       `json:"order"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+func toFixedExpenseResponse(exp models.FixedExpense) fixedExpenseResponse {
+	id := ""
+	if exp.ID != primitive.NilObjectID {
+		id = exp.ID.Hex()
+	}
+
+	categoryID := ""
+	if exp.CategoryID != primitive.NilObjectID {
+		categoryID = exp.CategoryID.Hex()
+	}
+
+	return fixedExpenseResponse{
+		ID:         id,
+		Amount:     exp.Amount,
+		CategoryID: categoryID,
+		Note:       exp.Note,
+		Owner:      exp.Owner,
+		Day:        exp.Day,
+		Type:       exp.Type,
+		Order:      exp.Order,
+		CreatedAt:  exp.CreatedAt,
+		UpdatedAt:  exp.UpdatedAt,
+	}
+}
+
 // CreateFixedExpense godoc
 // @Summary      新增每月固定支出
 // @Description  建立固定支出並嘗試為當月建立交易紀錄
@@ -66,7 +104,7 @@ func CreateFixedExpense(c *gin.Context) {
 		go createTransactionForFixedExpense(input, time.Now())
 	}
 
-	c.JSON(http.StatusOK, input)
+	c.JSON(http.StatusOK, toFixedExpenseResponse(input))
 }
 
 // UpdateFixedExpense godoc
@@ -267,7 +305,11 @@ func GetFixedExpenses(c *gin.Context) {
 	}
 
 	log.Printf("DEBUG: GetFixedExpenses returning %d items for user %s", len(expenses), currentUser)
-	c.JSON(http.StatusOK, expenses)
+	responses := make([]fixedExpenseResponse, 0, len(expenses))
+	for _, exp := range expenses {
+		responses = append(responses, toFixedExpenseResponse(exp))
+	}
+	c.JSON(http.StatusOK, responses)
 }
 
 // DeleteFixedExpense godoc

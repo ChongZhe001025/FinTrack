@@ -31,6 +31,57 @@ interface FixedExpenseForm {
     type: 'income' | 'expense';
 }
 
+const normalizeObjectId = (value: unknown): string => {
+    if (typeof value === 'string') return value;
+    if (value && typeof value === 'object') {
+        const record = value as { $oid?: string; id?: string; _id?: string };
+        if (typeof record.$oid === 'string') return record.$oid;
+        if (typeof record.id === 'string') return record.id;
+        if (typeof record._id === 'string') return record._id;
+    }
+    return '';
+};
+
+const normalizeNumber = (value: unknown, fallback = 0): number => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeFixedExpenses = (value: unknown): FixedExpense[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+        .map((item) => {
+            if (!item || typeof item !== 'object') return null;
+            const record = item as Record<string, unknown>;
+            const id = normalizeObjectId(record.id ?? record._id);
+            if (!id) return null;
+            const categoryId = normalizeObjectId(record.category_id ?? record.categoryId);
+            const amount = normalizeNumber(record.amount);
+            const day = normalizeNumber(record.day);
+            const typeRaw = typeof record.type === 'string' ? record.type.toLowerCase() : '';
+            const type: 'income' | 'expense' = typeRaw === 'income' || typeRaw === 'expense' ? (typeRaw as 'income' | 'expense') : 'expense';
+            const note = typeof record.note === 'string' ? record.note : '';
+            const orderValue = normalizeNumber(record.order, 0);
+
+            const expense: FixedExpense = {
+                id,
+                amount,
+                category_id: categoryId,
+                note,
+                day,
+                type,
+            };
+
+            if (Number.isFinite(orderValue) && orderValue > 0) {
+                expense.order = orderValue;
+            }
+
+            return expense;
+        })
+        .filter((item): item is FixedExpense => item !== null);
+};
+
 export default function FixedExpenses() {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -63,7 +114,8 @@ export default function FixedExpenses() {
         queryKey: ['fixed-expenses'],
         queryFn: async () => {
             const res = await axios.get('/api/v1/fixed-expenses');
-            return (res.data || []).slice().sort((a: FixedExpense, b: FixedExpense) => {
+            const normalized = normalizeFixedExpenses(res.data);
+            return normalized.slice().sort((a: FixedExpense, b: FixedExpense) => {
                 const orderDiff = (a.order ?? 0) - (b.order ?? 0);
                 if (orderDiff !== 0) return orderDiff;
                 return a.day - b.day;
@@ -113,8 +165,13 @@ export default function FixedExpenses() {
         mutationFn: async (id: string) => {
             await axios.delete(`/api/v1/fixed-expenses/${id}`);
         },
-        onSuccess: () => {
+        onSuccess: (_, id) => {
             queryClient.invalidateQueries({ queryKey: ['fixed-expenses'] });
+            if (editingExpense?.id === id) {
+                setIsModalOpen(false);
+                setEditingExpense(null);
+                reset();
+            }
             toast.success('已刪除固定交易');
         },
         onError: () => {
