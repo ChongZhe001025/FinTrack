@@ -21,7 +21,6 @@ import {
   ChevronLeft,
   ChevronRight,
   BarChart3,
-  CalendarDays,
   List,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -44,11 +43,6 @@ interface ComparisonStat {
   [key: string]: unknown;
 }
 
-interface WeeklyStat {
-  day: string;
-  amount: number;
-}
-
 interface CustomTooltipProps {
   active?: boolean;
   payload?: Array<{
@@ -62,23 +56,10 @@ interface CustomTooltipProps {
 
 const COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'];
 
-// 定義篩選選項
-const RANGE_OPTIONS = [
-  { value: '7days', label: '近 7 天' },
-  { value: '30days', label: '近 30 天' },
-  { value: '90days', label: '近 3 個月' },
-  { value: '180days', label: '近半年' },
-  { value: '365days', label: '近一年' },
-];
-
 export default function Stats() {
 
 
   const [isLoading, setIsLoading] = useState(true);
-
-  // 獨立控制消費習慣時間範圍
-  const [weeklyRange, setWeeklyRange] = useState('90days');
-  const [isWeeklyLoading, setIsWeeklyLoading] = useState(false);
 
   // 支出占比/明細/對比 的月份（預設當前月份）
   const [baseMonth, setBaseMonth] = useState(() => getSelectedMonth());
@@ -139,22 +120,6 @@ export default function Stats() {
   useEffect(() => {
     setIsLoading(isBaseLoading);
   }, [isBaseLoading]);
-
-  // 獨立載入：消費習慣 (當 weeklyRange 改變時觸發)
-  const { data: weeklyStats, isLoading: isWeekLoading } = useQuery({
-    queryKey: ['stats-weekly', weeklyRange],
-    queryFn: async () => {
-      const res = await axios.get(`/api/v1/stats/weekly?range=${weeklyRange}`);
-      return res.data || [];
-    },
-    placeholderData: keepPreviousData,
-  });
-
-  const weeklyData = (weeklyStats || []) as WeeklyStat[];
-
-  useEffect(() => {
-    setIsWeeklyLoading(isWeekLoading);
-  }, [isWeekLoading]);
 
   const totalExpense = pieData.reduce((sum: number, item: CategoryStat) => sum + item.amount, 0);
 
@@ -333,7 +298,7 @@ export default function Stats() {
       </div>
 
       {/* Row 2 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Comparison */}
         <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
@@ -372,68 +337,6 @@ export default function Stats() {
 
                   <Bar dataKey="previous" name="上月" fill={isDark ? '#404040' : '#e5e7eb'} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="current" name="本月" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="h-40 flex justify-center items-center text-gray-400 dark:text-neutral-500 bg-gray-50 dark:bg-neutral-950 rounded-lg">
-              無資料
-            </div>
-          )}
-        </div>
-
-        {/* Weekly */}
-        <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm relative">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="text-emerald-600 dark:text-emerald-300" />
-              <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-100">消費習慣</h3>
-            </div>
-
-            <select
-              value={weeklyRange}
-              onChange={(e) => setWeeklyRange(e.target.value)}
-              className="text-xs md:text-sm border border-gray-200 dark:border-neutral-700 rounded-lg p-1.5
-                         bg-gray-50 dark:bg-neutral-950 text-gray-600 dark:text-neutral-200
-                         focus:outline-none focus:ring-2 focus:ring-emerald-100 dark:focus:ring-neutral-700 cursor-pointer"
-            >
-              {RANGE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 載入中遮罩 */}
-          {isWeeklyLoading && (
-            <div className="absolute inset-0 bg-white/60 dark:bg-neutral-950/60 flex items-center justify-center z-10 rounded-xl">
-              <Loader2 className="animate-spin text-emerald-500" />
-            </div>
-          )}
-
-          {weeklyData.length > 0 ? (
-            <div className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={weeklyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridStroke} />
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: axisLabelColor, fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: axisTickColor, fontSize: 12 }} />
-
-                  <BarTooltip
-                    cursor={{ fill: cursorFill }}
-                    formatter={(value: number | undefined) => [`NT$ ${(value || 0).toLocaleString()}`, '總支出']}
-                    contentStyle={tooltipStyle}
-                  />
-
-                  <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-                    {weeklyData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={['週六', '週日'].includes(entry.day) ? '#f59e0b' : '#10b981'}
-                      />
-                    ))}
-                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>

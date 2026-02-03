@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -16,6 +17,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
+	"github.com/robfig/cron/v3"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.mongodb.org/mongo-driver/bson"
@@ -138,10 +140,29 @@ func GinRouter() *gin.Engine {
 			protected.POST("/budgets", controllers.SetBudget)
 			protected.GET("/budgets/status", controllers.GetBudgetStatus)
 			protected.DELETE("/budgets/:id", controllers.DeleteBudget)
+
+			// Fixed Expenses
+			protected.POST("/fixed-expenses", controllers.CreateFixedExpense)
+			protected.GET("/fixed-expenses", controllers.GetFixedExpenses)
+			protected.DELETE("/fixed-expenses/:id", controllers.DeleteFixedExpense)
 		}
 	}
 
 	registerStaticRoutes(r)
+
+	// 6. 設定 Cron Job (定期執行固定支出)
+	c := cron.New()
+	// 每天凌晨 00:01 執行
+	_, err := c.AddFunc("1 0 * * *", func() {
+		log.Println("[Cron] 開始執行每日固定支出檢查...")
+		controllers.ProcessFixedExpenses()
+	})
+	if err != nil {
+		log.Printf("無法啟動 Cron: %v", err)
+	} else {
+		c.Start()
+		log.Println("✅ Cron 排程已啟動")
+	}
 
 	return r
 }

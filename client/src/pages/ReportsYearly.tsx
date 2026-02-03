@@ -6,14 +6,13 @@ import { Loader2, LineChart, ChevronLeft, ChevronRight, Wallet, Calendar, ArrowU
 import {
   ResponsiveContainer,
   ComposedChart,
-  BarChart,
-  Bar,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
+  Bar,
 } from 'recharts';
 import { getYearlyReport } from '../api/reports';
 import type { MonthAmount } from '../types/report';
@@ -101,43 +100,7 @@ export default function ReportsYearly() {
     }));
   }, [data]);
 
-  const categoryChartData = useMemo(() => {
-    if (!data) return [];
-    const limit = 7;
-    const top = data.byCategory.slice(0, limit);
-    const rest = data.byCategory.slice(limit);
-    const restTotal = rest.reduce((sum, item) => sum + item.total, 0);
-    const restCount = rest.reduce((sum, item) => sum + item.count, 0);
-    const restPercent = data.summary.totalExpense > 0 ? (restTotal / data.summary.totalExpense) * 100 : 0;
-    const restAvg = restTotal / 12;
-
-    const merged =
-      restTotal > 0
-        ? [
-          ...top,
-          {
-            categoryId: 'other',
-            categoryName: '其他',
-            total: restTotal,
-            percent: restPercent,
-            count: restCount,
-            avgMonthly: restAvg,
-          },
-        ]
-        : top;
-
-    return merged.map((item) => ({
-      name: item.categoryName || item.categoryId || '未分類',
-      total: item.total,
-      percent: item.percent,
-      count: item.count,
-      avgMonthly: item.avgMonthly,
-    }));
-  }, [data]);
-
   const hasMonthlyData = monthlyChartData.some((item) => item.expense > 0 || item.income > 0);
-  const hasCategoryData = categoryChartData.some((item) => item.total > 0);
-  const hasOtherCategory = categoryChartData.some((item) => item.name === '其他');
 
   const MonthlyTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (!active || !payload || payload.length === 0) return null;
@@ -162,38 +125,6 @@ export default function ReportsYearly() {
         <p style={{ color: chartVars.expense }}>支出：{formatCurrency(values.expense ?? 0)}</p>
         <p style={{ color: chartVars.income }}>收入：{formatCurrency(values.income ?? 0)}</p>
         <p style={{ color: chartVars.text }}>結餘：{formatCurrency(values.net ?? 0)}</p>
-      </div>
-    );
-  };
-
-  const CategoryTooltip = ({ active, payload }: CustomTooltipProps) => {
-    if (!active || !payload || payload.length === 0) return null;
-
-    const item = payload[0]?.payload as {
-      name: string;
-      total: number;
-      percent: number;
-      count: number;
-      avgMonthly: number;
-    };
-    if (!item) return null;
-
-    return (
-      <div
-        className="p-3 shadow-lg rounded-lg text-sm"
-        style={{
-          backgroundColor: chartVars.tooltipBg,
-          border: `1px solid ${chartVars.tooltipBorder}`,
-          color: chartVars.tooltipText,
-        }}
-      >
-        <p className="font-bold mb-2" style={{ color: chartVars.tooltipText }}>
-          {item.name}
-        </p>
-        <p style={{ color: chartVars.text }}>總額：{formatCurrency(item.total ?? 0)}</p>
-        <p style={{ color: chartVars.text }}>占比：{(item.percent ?? 0).toFixed(1)}%</p>
-        <p style={{ color: chartVars.text }}>筆數：{item.count ?? 0}</p>
-        <p style={{ color: chartVars.text }}>月均：{formatCurrency(item.avgMonthly ?? 0)}</p>
       </div>
     );
   };
@@ -312,8 +243,8 @@ export default function ReportsYearly() {
             </div>
           </section>
 
-          <section className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm lg:col-span-3">
+          <section className="grid grid-cols-1 gap-4">
+            <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-100">每月收支走勢</h3>
@@ -353,53 +284,6 @@ export default function ReportsYearly() {
               ) : (
                 <div className="h-72 flex items-center justify-center text-gray-400 dark:text-neutral-500 bg-gray-50 dark:bg-neutral-950 rounded-lg">
                   目前沒有年度收支資料
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm lg:col-span-2">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-100">分類支出分布</h3>
-                  <p className="text-xs text-gray-500 dark:text-neutral-400 mt-1">依總額排序，含其他分類</p>
-                </div>
-                <div className="text-xs text-gray-400 dark:text-neutral-500">Top {categoryChartData.length}</div>
-              </div>
-
-              {hasCategoryData ? (
-                <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={categoryChartData} layout="vertical" margin={{ left: 16, right: 16 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartVars.grid} />
-                      <XAxis
-                        type="number"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: chartVars.tick, fontSize: 12 }}
-                        tickFormatter={formatCompactNumber}
-                      />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        axisLine={false}
-                        tickLine={false}
-                        width={80}
-                        tick={{ fill: chartVars.text, fontSize: 12 }}
-                      />
-                      <Tooltip content={<CategoryTooltip />} />
-                      <Bar dataKey="total" fill={chartVars.category} radius={[0, 6, 6, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-72 flex items-center justify-center text-gray-400 dark:text-neutral-500 bg-gray-50 dark:bg-neutral-950 rounded-lg">
-                  目前沒有分類資料
-                </div>
-              )}
-
-              {hasOtherCategory && (
-                <div className="text-xs text-gray-500 dark:text-neutral-400 mt-3">
-                  其他分類已合併為「其他」顯示
                 </div>
               )}
             </div>
