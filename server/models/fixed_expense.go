@@ -6,7 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// FixedExpense 代表每月固定支出設定
+// FixedExpense 代表每月固定支出
 type FixedExpense struct {
 	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Amount     float64            `bson:"amount" json:"amount" binding:"required"`

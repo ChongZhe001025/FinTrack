@@ -265,7 +265,7 @@ export default function FixedExpenses() {
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 flex items-center gap-2">
                     <Calendar className="text-indigo-600 dark:text-indigo-400" />
-                    每月固定支出設定
+                    每月固定支出
                 </h2>
                 <button
                     onClick={() => {
@@ -320,25 +320,34 @@ export default function FixedExpenses() {
                                         <GripVertical size={16} />
                                     </button>
 
-                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 shrink-0 min-w-[100px]">
+                                    <div className="flex flex-row items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                                        {/* Day Column (1/4) */}
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
                                             <span className="text-gray-500 dark:text-neutral-400 text-sm">每月</span>
-                                            <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{exp.day}</span>
+                                            <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400 w-6 text-center">{exp.day}</span>
                                             <span className="text-gray-500 dark:text-neutral-400 text-sm">號</span>
                                         </div>
 
-                                        <div className="shrink-0">
-                                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-neutral-800 dark:text-neutral-300">
-                                                {getCategoryName(exp.category_id)}
-                                            </span>
+                                        {/* Category & Note Wrapper (2/4 Space) - Mobile: Stacked, Desktop: Row */}
+                                        <div className="flex-[2] flex flex-col sm:flex-row items-center sm:gap-0 gap-1 min-w-0">
+                                            {/* Category */}
+                                            <div className="flex justify-center flex-1 w-full sm:w-auto min-w-0">
+                                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-neutral-800 dark:text-neutral-300">
+                                                    {getCategoryName(exp.category_id)}
+                                                </span>
+                                            </div>
+
+                                            {/* Note */}
+                                            <div className="flex justify-center flex-1 w-full sm:w-auto min-w-0">
+                                                <div className="text-sm text-gray-500 dark:text-neutral-400 truncate text-center">
+                                                    {exp.note || <span className="opacity-50">無備註</span>}
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div className="font-bold text-gray-900 dark:text-neutral-100 shrink-0 min-w-[100px]">
+                                        {/* Amount Column (1/4) */}
+                                        <div className="flex-1 min-w-0 text-right font-bold text-gray-900 dark:text-neutral-100 whitespace-nowrap">
                                             NT$ {exp.amount.toLocaleString()}
-                                        </div>
-
-                                        <div className="text-sm text-gray-500 dark:text-neutral-400 truncate flex-1">
-                                            {exp.note || '-'}
                                         </div>
                                     </div>
 
