@@ -3,10 +3,9 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import FixedExpenses from './pages/FixedExpenses'; // Added
-import Stats from './pages/Stats';
+import Reports from './pages/Reports';
 import Login from './pages/Login';
 import CategorySettings from './pages/CategorySettings';
-import ReportsYearly from './pages/ReportsYearly';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -33,8 +32,7 @@ function AppContent() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/fixed-expenses" element={<FixedExpenses />} />
-        <Route path="/stats" element={<Stats />} />
-        <Route path="/reports/yearly" element={<ReportsYearly />} />
+        <Route path="/reports" element={<Reports />} />
         <Route path="/categories" element={<CategorySettings />} />
       </Routes>
     </Layout>
