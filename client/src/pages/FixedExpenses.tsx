@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -12,6 +13,7 @@ interface FixedExpense {
     category_id: string;
     note: string;
     day: number;
+    type: 'income' | 'expense';
     order?: number;
 }
 
@@ -26,12 +28,14 @@ interface FixedExpenseForm {
     category_id: string;
     note: string;
     day: number;
+    type: 'income' | 'expense';
 }
 
 export default function FixedExpenses() {
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingExpense, setEditingExpense] = useState<FixedExpense | null>(null);
+    const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense');
 
     // 拖拉排序狀態
     const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -47,12 +51,12 @@ export default function FixedExpenses() {
         },
     });
 
-    const expenseCategories = useMemo(() =>
-        categories.filter(c => c.type === 'expense'),
-        [categories]
+    const filteredCategories = useMemo(() =>
+        categories.filter(c => c.type === transactionType),
+        [categories, transactionType]
     );
 
-    const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || '未分類';
+    const getCategory = (id: string) => categories.find(c => c.id === id);
 
     // Fetch Fixed Expenses
     const { data: expenses = [], isLoading } = useQuery<FixedExpense[]>({
@@ -79,7 +83,7 @@ export default function FixedExpenses() {
             queryClient.invalidateQueries({ queryKey: ['transactions'] });
             setIsModalOpen(false);
             reset();
-            toast.success('已新增固定支出');
+            toast.success('已新增固定交易');
         },
         onError: () => {
             toast.error('新增失敗');
@@ -97,7 +101,7 @@ export default function FixedExpenses() {
             setIsModalOpen(false);
             setEditingExpense(null);
             reset();
-            toast.success('已更新固定支出');
+            toast.success('已更新固定交易');
         },
         onError: () => {
             toast.error('更新失敗');
@@ -111,7 +115,7 @@ export default function FixedExpenses() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['fixed-expenses'] });
-            toast.success('已刪除固定支出');
+            toast.success('已刪除固定交易');
         },
         onError: () => {
             toast.error('刪除失敗');
@@ -236,12 +240,18 @@ export default function FixedExpenses() {
         resetDragState();
     };
 
-    const handleEdit = (expense: FixedExpense) => {
-        setEditingExpense(expense);
-        setValue('amount', expense.amount);
-        setValue('category_id', expense.category_id);
-        setValue('note', expense.note);
-        setValue('day', expense.day);
+    const handleEdit = (exp: FixedExpense) => {
+        // Find category to set correct type
+        const cat = categories.find(c => c.id === exp.category_id);
+        if (cat) {
+            setTransactionType(cat.type as 'income' | 'expense');
+        }
+
+        setEditingExpense(exp);
+        setValue('amount', exp.amount);
+        setValue('category_id', exp.category_id);
+        setValue('note', exp.note);
+        setValue('day', exp.day);
         setIsModalOpen(true);
     };
 
@@ -250,6 +260,7 @@ export default function FixedExpenses() {
             ...data,
             amount: Number(data.amount),
             day: Number(data.day),
+            type: transactionType,
         };
 
         if (editingExpense) {
@@ -265,10 +276,11 @@ export default function FixedExpenses() {
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 flex items-center gap-2">
                     <Calendar className="text-indigo-600 dark:text-indigo-400" />
-                    每月固定支出
+                    每月固定交易
                 </h2>
                 <button
                     onClick={() => {
+                        setTransactionType('expense');
                         setEditingExpense(null);
                         reset();
                         setIsModalOpen(true);
@@ -320,28 +332,43 @@ export default function FixedExpenses() {
                                         <GripVertical size={16} />
                                     </button>
 
-                                    <div className="flex flex-row items-center gap-2 sm:gap-4 flex-1 min-w-0">
-                                        {/* Day Column (1/4) */}
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                            <span className="text-gray-500 dark:text-neutral-400 text-sm">每月</span>
-                                            <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400 w-6 text-center">{exp.day}</span>
-                                            <span className="text-gray-500 dark:text-neutral-400 text-sm">號</span>
+                                    {/* Vertical Color Bar */}
+                                    <div
+                                        className={clsx(
+                                            'w-1.5 h-8 rounded-full shrink-0 mr-2',
+                                            getCategory(exp.category_id)?.type === 'income' ? 'bg-emerald-400 dark:bg-emerald-300' : 'bg-rose-400 dark:bg-rose-300'
+                                        )}
+                                    ></div>
+
+                                    <div className="flex flex-row items-center gap-4 sm:gap-8 flex-1 min-w-0">
+                                        {/* Day Column (Fixed Width for alignment) */}
+                                        <div className="flex items-center gap-1 shrink-0 w-12 sm:w-16 justify-center">
+                                            <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{exp.day}</span>
+                                            <span className="text-gray-400 dark:text-neutral-500 text-xs mt-1">日</span>
                                         </div>
 
-                                        {/* Category & Note Wrapper (2/4 Space) - Mobile: Stacked, Desktop: Row */}
-                                        <div className="flex-[2] flex flex-col sm:flex-row items-center sm:gap-0 gap-1 min-w-0">
-                                            {/* Category */}
-                                            <div className="flex justify-center flex-1 w-full sm:w-auto min-w-0">
-                                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-neutral-800 dark:text-neutral-300">
-                                                    {getCategoryName(exp.category_id)}
+                                        {/* Category & Badge & Note Wrapper - Desktop: Left Aligned, Mobile: Stacked Centered */}
+                                        <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-6 min-w-0">
+                                            {/* Category & Badge */}
+                                            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-3 min-w-0">
+                                                <span className="text-sm font-semibold text-gray-800 dark:text-neutral-100 truncate max-w-[120px] sm:max-w-none">
+                                                    {getCategory(exp.category_id)?.name || '未分類'}
+                                                </span>
+                                                <span
+                                                    className={clsx(
+                                                        'text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap',
+                                                        getCategory(exp.category_id)?.type === 'income'
+                                                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                                            : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+                                                    )}
+                                                >
+                                                    {getCategory(exp.category_id)?.type === 'income' ? '收入' : '支出'}
                                                 </span>
                                             </div>
 
                                             {/* Note */}
-                                            <div className="flex justify-center flex-1 w-full sm:w-auto min-w-0">
-                                                <div className="text-sm text-gray-500 dark:text-neutral-400 truncate text-center">
-                                                    {exp.note || <span className="opacity-50">無備註</span>}
-                                                </div>
+                                            <div className="text-sm text-gray-500 dark:text-neutral-400 truncate sm:text-left text-center">
+                                                {exp.note || <span className="opacity-40">無備註</span>}
                                             </div>
                                         </div>
 
@@ -361,7 +388,7 @@ export default function FixedExpenses() {
                                         </button>
                                         <button
                                             onClick={() => {
-                                                if (confirm('確定要刪除此固定支出設定嗎？')) {
+                                                if (confirm('確定要刪除此固定交易設定嗎？')) {
                                                     deleteMutation.mutate(exp.id);
                                                 }
                                             }}
@@ -383,9 +410,37 @@ export default function FixedExpenses() {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in backdrop-blur-sm">
                     <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden">
                         <div className="p-6 border-b border-gray-100 dark:border-neutral-800">
-                            <h3 className="text-xl font-bold text-gray-800 dark:text-neutral-100">{editingExpense ? '編輯固定支出' : '新增固定支出'}</h3>
+                            <h3 className="text-xl font-bold text-gray-800 dark:text-neutral-100">{editingExpense ? '編輯固定交易' : '新增固定交易'}</h3>
                         </div>
                         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+                            {/* Toggle Switch */}
+                            <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-lg">
+                                <button
+                                    type="button"
+                                    onClick={() => setTransactionType('expense')}
+                                    className={clsx(
+                                        "flex-1 py-1.5 text-sm font-medium rounded-md transition-all",
+                                        transactionType === 'expense'
+                                            ? "bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                                            : "text-gray-500 dark:text-neutral-400 hover:text-gray-700 dark:hover:text-neutral-300"
+                                    )}
+                                >
+                                    支出
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setTransactionType('income')}
+                                    className={clsx(
+                                        "flex-1 py-1.5 text-sm font-medium rounded-md transition-all",
+                                        transactionType === 'income'
+                                            ? "bg-white dark:bg-neutral-700 text-emerald-600 dark:text-emerald-400 shadow-sm"
+                                            : "text-gray-500 dark:text-neutral-400 hover:text-gray-700 dark:hover:text-neutral-300"
+                                    )}
+                                >
+                                    收入
+                                </button>
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1">每月扣款日</label>
                                 <div className="relative">
@@ -403,13 +458,13 @@ export default function FixedExpenses() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1">支出類別</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1">交易類別</label>
                                 <select
                                     {...register('category_id', { required: true })}
                                     className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 dark:bg-neutral-950 dark:border-neutral-700 dark:text-white"
                                 >
                                     <option value="">請選擇類別...</option>
-                                    {expenseCategories.map(c => (
+                                    {filteredCategories.map(c => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
                                 </select>
@@ -441,24 +496,40 @@ export default function FixedExpenses() {
                                 />
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsModalOpen(false);
-                                        setEditingExpense(null);
-                                        reset();
-                                    }}
-                                    className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
-                                >
-                                    取消
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm"
-                                >
-                                    {editingExpense ? '更新設定' : '儲存設定'}
-                                </button>
+                            <div className="flex justify-between items-center pt-4">
+                                {editingExpense ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (confirm('確定要刪除此固定交易設定嗎？')) {
+                                                deleteMutation.mutate(editingExpense.id);
+                                            }
+                                        }}
+                                        className="text-red-500 hover:text-red-700 text-sm font-medium transition"
+                                    >
+                                        刪除設定
+                                    </button>
+                                ) : <div />}
+
+                                <div className="flex gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsModalOpen(false);
+                                            setEditingExpense(null);
+                                            reset();
+                                        }}
+                                        className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                                    >
+                                        取消
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm"
+                                    >
+                                        {editingExpense ? '更新設定' : '儲存設定'}
+                                    </button>
+                                </div>
                             </div>
                         </form>
                     </div>

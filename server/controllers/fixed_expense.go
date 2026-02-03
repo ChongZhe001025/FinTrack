@@ -82,8 +82,10 @@ func CreateFixedExpense(c *gin.Context) {
 func UpdateFixedExpense(c *gin.Context) {
 	currentUser := c.MustGet("currentUser").(string)
 	idParam := c.Param("id")
+	log.Printf("DEBUG: UpdateFixedExpense called for ID: %s by User: %s", idParam, currentUser)
 	objID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
+		log.Printf("DEBUG: Invalid ID format: %s", idParam)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "無效的 ID"})
 		return
 	}
@@ -114,6 +116,9 @@ func UpdateFixedExpense(c *gin.Context) {
 	}
 	if val, ok := input["note"]; ok {
 		updateData["note"] = val
+	}
+	if val, ok := input["type"]; ok {
+		updateData["type"] = val
 	}
 	if val, ok := input["category_id"]; ok {
 		if catIDStr, ok := val.(string); ok {
@@ -206,12 +211,17 @@ func createTransactionForFixedExpense(exp models.FixedExpense, dateBase time.Tim
 	// 更好的方式可能是紀錄 FixedExpense 上次執行的時間? 但 user request 沒提到要改 schema 這麼细
 	// 先暫時不做重複檢查，因為 createTransactionForFixedExpense 只有在 Create 和 Cron 時呼叫
 
+	label := "固定支出"
+	if exp.Type == "income" {
+		label = "固定收入"
+	}
+
 	transaction := models.Transaction{
 		ID:         primitive.NewObjectID(),
 		Amount:     exp.Amount,
 		CategoryID: exp.CategoryID,
 		Date:       dateStr,
-		Note:       fmt.Sprintf("%s (固定支出)", exp.Note),
+		Note:       fmt.Sprintf("%s (%s)", exp.Note, label),
 		Owner:      exp.Owner,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
@@ -256,6 +266,7 @@ func GetFixedExpenses(c *gin.Context) {
 		expenses = []models.FixedExpense{}
 	}
 
+	log.Printf("DEBUG: GetFixedExpenses returning %d items for user %s", len(expenses), currentUser)
 	c.JSON(http.StatusOK, expenses)
 }
 
@@ -269,8 +280,10 @@ func GetFixedExpenses(c *gin.Context) {
 func DeleteFixedExpense(c *gin.Context) {
 	currentUser := c.MustGet("currentUser").(string)
 	idParam := c.Param("id")
+	log.Printf("DEBUG: DeleteFixedExpense called for ID: %s by User: %s", idParam, currentUser)
 	objID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
+		log.Printf("DEBUG: Invalid ID format in Delete: %s", idParam)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "無效的 ID"})
 		return
 	}

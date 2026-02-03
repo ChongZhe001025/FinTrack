@@ -13,7 +13,7 @@ interface LayoutProps {
 const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, label: '總覽' },
   { to: '/transactions', icon: List, label: '紀錄' },
-  { to: '/fixed-expenses', icon: Calendar, label: '固定支出' },
+  { to: '/fixed-expenses', icon: Calendar, label: '固定交易' },
   { to: '/categories', icon: Tags, label: '分類管理' },
   { to: '/reports', icon: BarChart3, label: '財務報表' },
 ];

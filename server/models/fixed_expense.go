@@ -14,6 +14,7 @@ type FixedExpense struct {
 	Note       string             `bson:"note" json:"note"`
 	Owner      string             `bson:"owner" json:"owner"`
 	Day        int                `bson:"day" json:"day" binding:"required,min=1,max=31"` // 每月幾號扣款
+	Type       string             `bson:"type" json:"type"`                               // "income" 或 "expense"
 	Order      int                `bson:"order" json:"order"`                             // 排序
 	CreatedAt  time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt  time.Time          `bson:"updated_at" json:"updated_at"`
