@@ -463,7 +463,7 @@ export default function Dashboard() {
 
       <div className="flex flex-col items-start sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2">
-          <LayoutDashboard className="text-indigo-600 dark:text-indigo-300" />
+          <LayoutDashboard className="text-indigo-600 dark:text-neutral-200" />
           <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 shrink-0">月度概況</h2>
         </div>
         <div className="flex items-center gap-3 bg-gray-50 dark:bg-neutral-900 p-1 rounded-lg border border-gray-100 dark:border-neutral-800">

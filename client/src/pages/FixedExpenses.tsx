@@ -332,7 +332,7 @@ export default function FixedExpenses() {
             <Toaster position="top-center" />
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 flex items-center gap-2">
-                    <Calendar className="text-indigo-600 dark:text-indigo-400" />
+                    <Calendar className="text-indigo-600 dark:text-neutral-200" />
                     每月固定交易
                 </h2>
                 <button

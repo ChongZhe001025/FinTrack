@@ -216,7 +216,7 @@ const MonthlyReport = () => {
                 {/* Pie */}
                 <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm overflow-y-auto max-h-[400px] flex flex-col">
                     <div className="flex items-center gap-2 mb-6 w-full">
-                        <PieIcon className="text-indigo-600 dark:text-indigo-300" />
+                        <PieIcon className="text-indigo-600 dark:text-neutral-200" />
                         <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-100">支出占比</h3>
                     </div>
 
@@ -270,7 +270,7 @@ const MonthlyReport = () => {
                 {/* List */}
                 <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm overflow-y-auto max-h-[400px]">
                     <div className="flex items-center gap-2 mb-6">
-                        <List className="text-indigo-600 dark:text-indigo-300" />
+                        <List className="text-indigo-600 dark:text-neutral-200" />
                         <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-100">支出明細</h3>
                     </div>
 
@@ -323,7 +323,7 @@ const MonthlyReport = () => {
                 <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl border border-gray-100 dark:border-neutral-800 shadow-sm">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
                         <div className="flex items-center gap-2">
-                            <BarChart3 className="text-indigo-600 dark:text-indigo-300" />
+                            <BarChart3 className="text-indigo-600 dark:text-neutral-200" />
                             <h3 className="text-lg font-bold text-gray-800 dark:text-neutral-100">上月 vs 本月</h3>
                         </div>
 
@@ -623,7 +623,7 @@ export default function Reports() {
     return (
         <div className="space-y-6 pb-20 pt-4">
             <div className="flex items-center gap-2">
-                <BarChart3 className="text-indigo-600 dark:text-indigo-300" />
+                <BarChart3 className="text-indigo-600 dark:text-neutral-200" />
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 shrink-0">財務報表</h2>
             </div>
 

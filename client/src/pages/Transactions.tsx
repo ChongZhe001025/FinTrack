@@ -406,7 +406,7 @@ export default function Transactions() {
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2">
-            <List className="text-indigo-600 dark:text-indigo-300" />
+            <List className="text-indigo-600 dark:text-neutral-200" />
             <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 shrink-0">交易紀錄</h2>
           </div>
           <div className="flex items-center gap-3 bg-gray-50 dark:bg-neutral-900 p-1 rounded-lg border border-gray-100 dark:border-neutral-800">
@@ -613,13 +613,13 @@ export default function Transactions() {
                   <th className="p-0">
                     <button
                       onClick={() => handleSort('category')}
-                      className="w-full py-4 px-4 md:px-6 flex items-center text-xs md:text-sm font-semibold text-gray-600 dark:text-neutral-300 hover:bg-gray-50 transition dark:hover:bg-neutral-900"
+                      className="w-full py-4 px-4 md:px-6 flex items-center justify-center text-xs md:text-sm font-semibold text-gray-600 dark:text-neutral-300 hover:bg-gray-50 transition dark:hover:bg-neutral-900"
                     >
                       類別 <SortIcon columnKey="category" />
                     </button>
                   </th>
 
-                  <th className="hidden md:table-cell py-4 px-4 md:px-6 text-xs md:text-sm font-semibold text-gray-600 dark:text-neutral-300 cursor-default">
+                  <th className="hidden md:table-cell py-4 px-4 md:px-6 text-xs md:text-sm font-semibold text-gray-600 dark:text-neutral-300 cursor-default text-center">
                     備註
                   </th>
 
@@ -639,16 +639,16 @@ export default function Transactions() {
                   <tr key={t.id} className="hover:bg-gray-50 transition group cursor-pointer dark:hover:bg-neutral-900" onClick={() => handleEditClick(t)}>
                     <td className="py-4 px-4 md:px-6 text-xs md:text-sm text-gray-600 dark:text-neutral-300 whitespace-nowrap">{t.date}</td>
 
-                    <td className="py-4 px-4 md:px-6 text-xs md:text-sm">
+                    <td className="py-4 px-4 md:px-6 text-xs md:text-sm text-center">
                       <span className="px-2 py-1 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium bg-gray-100 text-gray-700 dark:bg-neutral-800 dark:text-neutral-200">
                         {getCategoryName(t.category_id)}
                       </span>
-                      <div className="md:hidden text-[10px] text-gray-400 dark:text-neutral-500 mt-1 truncate max-w-[80px]">
+                      <div className="md:hidden text-[10px] text-gray-400 dark:text-neutral-500 mt-1 truncate max-w-[80px] mx-auto">
                         {t.note}
                       </div>
                     </td>
 
-                    <td className="hidden md:table-cell py-4 px-4 md:px-6 text-sm text-gray-800 dark:text-neutral-200">
+                    <td className="hidden md:table-cell py-4 px-4 md:px-6 text-sm text-gray-800 dark:text-neutral-200 text-center">
                       {t.note || <span className="text-gray-300 dark:text-neutral-600">-</span>}
                     </td>
 
