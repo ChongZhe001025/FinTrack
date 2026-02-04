@@ -21,6 +21,7 @@ const APP_TITLE = 'FinTrack';
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
   '/transactions': 'Transactions',
+  '/fixed-expenses': 'Fixed Expenses',
   '/reports': 'Financial Reports',
   '/categories': 'Categories',
 };
