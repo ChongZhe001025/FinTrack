@@ -330,7 +330,7 @@ export default function FixedExpenses() {
     return (
         <div className="space-y-6">
             <Toaster position="top-center" />
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-neutral-100 flex items-center gap-2">
                     <Calendar className="text-indigo-600 dark:text-neutral-200" />
                     每月固定交易
@@ -342,7 +342,7 @@ export default function FixedExpenses() {
                         reset();
                         setIsModalOpen(true);
                     }}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition font-medium shadow-sm dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-white"
                 >
                     <Plus size={18} /> 新增設定
                 </button>
