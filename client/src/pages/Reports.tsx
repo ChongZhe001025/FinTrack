@@ -173,6 +173,20 @@ const MonthlyReport = () => {
         );
     };
 
+    const CustomPieTooltip = ({ active, payload }: CustomTooltipProps) => {
+        if (!active || !payload || payload.length === 0) return null;
+        const data = payload[0];
+
+        return (
+            <div style={tooltipStyle} className="p-3 text-sm">
+                <p className="font-bold text-gray-800 dark:text-neutral-100">{data.name}</p>
+                <p className="text-indigo-600 dark:text-indigo-300">
+                    NT$ {Number(data.value || 0).toLocaleString()}
+                </p>
+            </div>
+        );
+    };
+
     if (isLoading) {
         return (
             <div className="flex h-64 justify-center items-center text-gray-400 dark:text-neutral-500">
@@ -240,10 +254,7 @@ const MonthlyReport = () => {
                                     </Pie>
 
                                     <PieTooltip
-                                        formatter={(value: number | undefined) =>
-                                            `NT$ ${Number(value || 0).toLocaleString()}`
-                                        }
-                                        contentStyle={tooltipStyle}
+                                        content={<CustomPieTooltip />}
                                         cursor={{ fill: cursorFill }}
                                     />
 
