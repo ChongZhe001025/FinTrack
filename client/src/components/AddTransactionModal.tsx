@@ -88,7 +88,7 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
       reset({
         date: getDefaultDate(),
         category_id: '',
-        amount: undefined,
+        amount: '' as any,
         note: '',
       });
       setSelectedType('expense');
@@ -292,6 +292,7 @@ export default function TransactionModal({ isOpen, onClose, editData }: Transact
                   )}
                   placeholder="0"
                   autoFocus={!editData}
+                  autoComplete="off"
                 />
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-neutral-500 font-bold">
                   NT$
