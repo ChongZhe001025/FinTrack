@@ -351,25 +351,27 @@ const MonthlyReport = () => {
                     </div>
 
                     {barData.length > 0 ? (
-                        <div className="h-[250px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart data={barData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridStroke} />
-                                    <XAxis
-                                        dataKey="category"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        interval={0}
-                                        tick={{ fill: axisLabelColor, fontSize: 12 }}
-                                    />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: axisTickColor, fontSize: 12 }} />
+                        <div className="overflow-x-auto pb-2">
+                            <div style={{ minWidth: Math.max(500, barData.length * 60) }} className="h-[250px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <ComposedChart data={barData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridStroke} />
+                                        <XAxis
+                                            dataKey="category"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            interval={0}
+                                            tick={{ fill: axisLabelColor, fontSize: 12 }}
+                                        />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: axisTickColor, fontSize: 12 }} />
 
-                                    <Tooltip content={<CustomBarTooltip />} cursor={{ fill: cursorFill }} />
+                                        <Tooltip content={<CustomBarTooltip />} cursor={{ fill: cursorFill }} />
 
-                                    <Bar dataKey="previous" name="上月" fill={isDark ? '#404040' : '#e5e7eb'} radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="current" name="本月" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                                </ComposedChart>
-                            </ResponsiveContainer>
+                                        <Bar dataKey="previous" name="上月" fill={isDark ? '#404040' : '#e5e7eb'} radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="current" name="本月" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
                     ) : (
                         <div className="h-40 flex justify-center items-center text-gray-400 dark:text-neutral-500 bg-gray-50 dark:bg-neutral-950 rounded-lg">
